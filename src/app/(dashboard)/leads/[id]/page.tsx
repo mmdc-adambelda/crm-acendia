@@ -24,6 +24,7 @@ import { Separator } from '@/components/ui/separator'
 import { StatusBadge, LeadScoreBadge } from '@/components/shared/StatusBadge'
 import { ActivityTimeline } from '@/components/leads/ActivityTimeline'
 import { LeadDetailActions } from '@/components/leads/LeadDetailActions'
+import { LeadQuickActions } from '@/components/leads/LeadQuickActions'
 import { formatCurrency, formatDate, formatRelativeTime, getInitials } from '@/lib/utils'
 import type { ActivityType, LeadStatus, TaskPriority, CallOutcome } from '@/types'
 
@@ -180,7 +181,10 @@ export default async function LeadDetailPage({
             </div>
             <p className="text-muted-foreground">{lead.contact_person}</p>
           </div>
-          <LeadDetailActions lead={lead} teamMembers={teamMembers} userId={userId} />
+          <div className="flex items-center gap-2 flex-wrap">
+            <LeadQuickActions leadId={lead.id} leadName={lead.company_name} userId={userId} teamMembers={teamMembers} />
+            <LeadDetailActions lead={lead} teamMembers={teamMembers} userId={userId} />
+          </div>
         </div>
       </div>
 
@@ -302,7 +306,7 @@ export default async function LeadDetailPage({
                           </p>
                           {call.duration && (
                             <p className="text-xs text-muted-foreground">
-                              {Math.floor(call.duration / 60)}m {call.duration % 60}s
+                              {call.duration}m
                             </p>
                           )}
                         </div>

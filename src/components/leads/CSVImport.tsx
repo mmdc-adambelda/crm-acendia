@@ -14,7 +14,7 @@ import {
   DialogTitle,
   DialogFooter,
 } from '@/components/ui/dialog'
-import { LEAD_STATUSES, LEAD_SOURCES, type LeadStatus, type LeadSource } from '@/types'
+import type { LeadStatus } from '@/types'
 
 interface CSVImportProps {
   open: boolean
@@ -24,35 +24,41 @@ interface CSVImportProps {
 
 type CSVRow = Record<string, string>
 
-const REQUIRED_COLS = ['company_name', 'contact_person', 'email'] as const
+// Column headers that match the manual lead tracker format
 const TEMPLATE_HEADERS = [
-  'company_name',
-  'contact_person',
-  'email',
-  'phone',
-  'website',
-  'industry',
-  'location',
-  'status',
-  'source',
-  'deal_value',
-  'notes',
+  'Company Name',
+  'Industry',
+  'Contact Person',
+  'Phone Number',
+  'Email',
+  'Website',
+  'Lead Score (/100)',
+  'Call Status',
+  'Attempts',
+  'Outcome',
+  'Callback Time',
+  'Follow-up Date',
+  'Notes / Talking Points',
+  'Next Action',
 ]
 
 function downloadTemplate() {
   const header = TEMPLATE_HEADERS.join(',')
   const example = [
     'Acme Corp',
-    'John Smith',
-    'john@acme.com',
-    '+1 555 0100',
-    'https://acme.com',
     'Technology',
-    'New York, USA',
-    'New',
-    'Website',
-    '50000',
-    'Referred by partner',
+    'John Smith',
+    '+1 555 0100',
+    'john@acme.com',
+    'https://acme.com',
+    '75',
+    'Answered',
+    '2',
+    'Interested',
+    '',
+    '2026-07-20',
+    'Great fit for our services. Budget confirmed.',
+    'Send proposal',
   ].join(',')
   const csv = `${header}\n${example}`
   const blob = new Blob([csv], { type: 'text/csv' })
@@ -64,16 +70,66 @@ function downloadTemplate() {
   URL.revokeObjectURL(url)
 }
 
+// Outcome (primary) + Call Status (fallback) → LeadStatus
+function mapToLeadStatus(outcome: string, callStatus: string): LeadStatus {
+  const o = outcome.toLowerCase().trim()
+  const s = callStatus.toLowerCase().trim()
+
+  // Outcome takes priority — reflects the business result of the conversation
+  if (o.includes('booked') || o.includes('meeting')) return 'Proposal Sent'
+  if (o.includes('proposal') || o.includes('sent')) return 'Proposal Sent'
+  if (o.includes('negotiat')) return 'Negotiation'
+  if (o.includes('won') || o.includes('closed won')) return 'Won'
+  if (o.includes('not interested') || o.includes('no interest') || o.includes('closed lost')) return 'Lost'
+  if ((o.includes('interested') && !o.includes('not')) || o.includes('qualified')) return 'Qualified'
+  if (o.includes('callback') || o.includes('follow') || o.includes('voicemail') || o.includes('left message')) return 'Contacted'
+  if (o && o !== 'n/a' && o !== '-' && o !== '') return 'Contacted'
+
+  // Fall back to call status
+  if (s.includes('answered') || s.includes('connected')) return 'Contacted'
+  if (s.includes('voicemail') || s.includes('left message')) return 'Contacted'
+  if (s.includes('callback')) return 'Contacted'
+  if (s.includes('no answer') || s.includes('busy') || s.includes('wrong number')) return 'New'
+  if (s && s !== 'n/a' && s !== '-' && s !== '') return 'Contacted'
+
+  return 'New'
+}
+
+function parseLeadScore(raw: string | undefined): number {
+  if (!raw?.trim()) return 0
+  // Strip "/100" suffix if present (e.g. "75/100" → 75)
+  const cleaned = raw.trim().replace(/\s*\/\s*100.*/, '').trim()
+  const n = parseInt(cleaned, 10)
+  if (isNaN(n)) return 0
+  return Math.min(100, Math.max(0, n))
+}
+
+function buildNotes(row: CSVRow): string | null {
+  const base = row['Notes / Talking Points']?.trim() || ''
+
+  const outreachLines = [
+    row['Attempts']?.trim() ? `Attempts: ${row['Attempts'].trim()}` : '',
+    row['Callback Time']?.trim() ? `Callback Time: ${row['Callback Time'].trim()}` : '',
+    row['Follow-up Date']?.trim() ? `Follow-up Date: ${row['Follow-up Date'].trim()}` : '',
+    row['Next Action']?.trim() ? `Next Action: ${row['Next Action'].trim()}` : '',
+  ].filter(Boolean)
+
+  if (!base && outreachLines.length === 0) return null
+
+  const parts = [base, outreachLines.length ? outreachLines.join('\n') : ''].filter(Boolean)
+  return parts.join('\n\n')
+}
+
 function validateRow(row: CSVRow): string[] {
   const errors: string[] = []
-  if (!row.company_name?.trim()) errors.push('company_name required')
-  if (!row.contact_person?.trim()) errors.push('contact_person required')
-  if (!row.email?.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(row.email))
-    errors.push('valid email required')
-  if (row.status && !LEAD_STATUSES.includes(row.status as never))
-    errors.push(`invalid status (use: ${LEAD_STATUSES.join(', ')})`)
-  if (row.source && !LEAD_SOURCES.includes(row.source as never))
-    errors.push(`invalid source`)
+  if (!row['Company Name']?.trim()) errors.push('Company Name required')
+  if (!row['Contact Person']?.trim()) errors.push('Contact Person required')
+  const email = row['Email']?.trim()
+  if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))
+    errors.push('valid Email required')
+  const scoreRaw = row['Lead Score (/100)']?.trim().replace(/\s*\/\s*100.*/, '').trim()
+  if (scoreRaw && (isNaN(Number(scoreRaw)) || Number(scoreRaw) < 0 || Number(scoreRaw) > 100))
+    errors.push('Lead Score must be 0–100')
   return errors
 }
 
@@ -115,7 +171,6 @@ export function CSVImport({ open, onOpenChange, userId }: CSVImportProps) {
       toast.error('Fix validation errors before importing')
       return
     }
-
     const validRows = rows.filter((_, i) => !errors.has(i))
     if (!validRows.length) {
       toast.error('No valid rows to import')
@@ -126,17 +181,16 @@ export function CSVImport({ open, onOpenChange, userId }: CSVImportProps) {
     const supabase = createClient()
 
     const records = validRows.map((row) => ({
-      company_name: row.company_name.trim(),
-      contact_person: row.contact_person.trim(),
-      email: row.email.trim().toLowerCase(),
-      phone: row.phone?.trim() || null,
-      website: row.website?.trim() || null,
-      industry: row.industry?.trim() || null,
-      location: row.location?.trim() || null,
-      status: (LEAD_STATUSES.includes(row.status as LeadStatus) ? row.status : 'New') as LeadStatus,
-      source: (LEAD_SOURCES.includes(row.source as LeadSource) ? row.source : 'Other') as LeadSource,
-      deal_value: row.deal_value ? parseFloat(row.deal_value) || null : null,
-      notes: row.notes?.trim() || null,
+      company_name: row['Company Name'].trim(),
+      industry: row['Industry']?.trim() || null,
+      contact_person: row['Contact Person'].trim(),
+      phone: row['Phone Number']?.trim() || null,
+      email: row['Email'].trim().toLowerCase(),
+      website: row['Website']?.trim() || null,
+      lead_score: parseLeadScore(row['Lead Score (/100)']),
+      status: mapToLeadStatus(row['Outcome'] ?? '', row['Call Status'] ?? ''),
+      source: 'Cold Outreach' as const,
+      notes: buildNotes(row),
       created_by: userId,
     }))
 
@@ -176,14 +230,20 @@ export function CSVImport({ open, onOpenChange, userId }: CSVImportProps) {
 
         <div className="space-y-4">
           {/* Download template */}
-          <div className="flex items-center justify-between rounded-lg bg-muted/50 px-4 py-3">
-            <p className="text-sm text-muted-foreground">
-              Download the template to see the required format
+          <div className="rounded-lg bg-muted/50 px-4 py-3 space-y-1.5">
+            <div className="flex items-center justify-between">
+              <p className="text-sm font-medium">Lead tracker format</p>
+              <Button variant="outline" size="sm" onClick={downloadTemplate} className="gap-2 shrink-0">
+                <Download className="h-3.5 w-3.5" />
+                Template
+              </Button>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Columns: Company Name, Industry, Contact Person, Phone Number, Email, Website, Lead Score, Call Status, Attempts, Outcome, Callback Time, Follow-up Date, Notes / Talking Points, Next Action
             </p>
-            <Button variant="outline" size="sm" onClick={downloadTemplate} className="gap-2 shrink-0">
-              <Download className="h-3.5 w-3.5" />
-              Template
-            </Button>
+            <p className="text-xs text-muted-foreground">
+              Outcome + Call Status automatically map to Lead Status. Attempts, Callback Time, Follow-up Date, and Next Action are saved in Notes.
+            </p>
           </div>
 
           {/* File upload */}
@@ -242,6 +302,7 @@ export function CSVImport({ open, onOpenChange, userId }: CSVImportProps) {
                       <th className="px-2 py-1 text-left font-medium">Company</th>
                       <th className="px-2 py-1 text-left font-medium">Contact</th>
                       <th className="px-2 py-1 text-left font-medium">Email</th>
+                      <th className="px-2 py-1 text-left font-medium">→ Status</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -251,9 +312,12 @@ export function CSVImport({ open, onOpenChange, userId }: CSVImportProps) {
                         className={errors.has(i) ? 'bg-red-50 dark:bg-red-950/20' : ''}
                       >
                         <td className="px-2 py-1 text-muted-foreground">{i + 1}</td>
-                        <td className="px-2 py-1">{row.company_name || '—'}</td>
-                        <td className="px-2 py-1">{row.contact_person || '—'}</td>
-                        <td className="px-2 py-1">{row.email || '—'}</td>
+                        <td className="px-2 py-1">{row['Company Name'] || '—'}</td>
+                        <td className="px-2 py-1">{row['Contact Person'] || '—'}</td>
+                        <td className="px-2 py-1">{row['Email'] || '—'}</td>
+                        <td className="px-2 py-1 text-muted-foreground">
+                          {mapToLeadStatus(row['Outcome'] ?? '', row['Call Status'] ?? '')}
+                        </td>
                       </tr>
                     ))}
                   </tbody>

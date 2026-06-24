@@ -1,7 +1,7 @@
 'use client'
 
 import { useRouter } from 'next/navigation'
-import { Moon, Sun, Bell, LogOut, User, Settings, Menu } from 'lucide-react'
+import { Moon, Sun, LogOut, User, Settings, Menu } from 'lucide-react'
 import { useTheme } from 'next-themes'
 import { toast } from 'sonner'
 import { createClient } from '@/lib/supabase/client'
@@ -17,6 +17,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { MobileNav } from '@/components/layout/MobileNav'
+import { NotificationBell } from '@/components/layout/NotificationBell'
 import type { User as SupabaseUser } from '@supabase/supabase-js'
 import type { Profile } from '@/types'
 
@@ -70,10 +71,7 @@ export function TopNav({ user, profile }: TopNavProps) {
         </Button>
 
         {/* Notifications */}
-        <Button variant="ghost" size="icon" className="h-9 w-9 relative">
-          <Bell className="h-4 w-4" />
-          <span className="absolute top-1.5 right-1.5 h-2 w-2 rounded-full bg-green-500" />
-        </Button>
+        <NotificationBell userId={user.id} />
 
         {/* User menu */}
         <DropdownMenu>

@@ -1,0 +1,450 @@
+'use client'
+
+import * as React from 'react'
+import { useRouter } from 'next/navigation'
+import { useForm } from 'react-hook-form'
+import { zodResolver } from '@hookform/resolvers/zod'
+import { Loader2 } from 'lucide-react'
+import { toast } from 'sonner'
+import { createClient } from '@/lib/supabase/client'
+import { leadSchema, type LeadFormValues } from '@/lib/validations/leads'
+import { LEAD_STATUSES, LEAD_SOURCES, INDUSTRIES } from '@/types'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Textarea } from '@/components/ui/textarea'
+import { Separator } from '@/components/ui/separator'
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from '@/components/ui/form'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
+
+type TeamMember = { id: string; full_name: string | null }
+
+type LeadRow = {
+  id: string
+  company_name: string
+  contact_person: string
+  email: string
+  phone: string | null
+  website: string | null
+  industry: string | null
+  location: string | null
+  notes: string | null
+  status: string
+  source: string
+  deal_value: number | null
+  probability: number | null
+  lead_score: number
+  assigned_to: string | null
+}
+
+interface LeadFormProps {
+  lead?: LeadRow | null
+  teamMembers: TeamMember[]
+  userId: string
+  onSuccess: () => void
+  onCancel: () => void
+}
+
+export function LeadForm({ lead, teamMembers, userId, onSuccess, onCancel }: LeadFormProps) {
+  const router = useRouter()
+  const [isPending, setIsPending] = React.useState(false)
+  const isEdit = !!lead
+
+  const form = useForm<LeadFormValues>({
+    resolver: zodResolver(leadSchema),
+    defaultValues: {
+      company_name: lead?.company_name ?? '',
+      contact_person: lead?.contact_person ?? '',
+      email: lead?.email ?? '',
+      phone: lead?.phone ?? '',
+      website: lead?.website ?? '',
+      industry: lead?.industry ?? '',
+      location: lead?.location ?? '',
+      status: (lead?.status as LeadFormValues['status']) ?? 'New',
+      source: (lead?.source as LeadFormValues['source']) ?? 'Website',
+      deal_value: lead?.deal_value ?? null,
+      probability: lead?.probability ?? null,
+      lead_score: lead?.lead_score ?? 0,
+      assigned_to: lead?.assigned_to ?? '',
+      notes: lead?.notes ?? '',
+    },
+  })
+
+  async function onSubmit(values: LeadFormValues) {
+    setIsPending(true)
+    const supabase = createClient()
+
+    const payload = {
+      company_name: values.company_name,
+      contact_person: values.contact_person,
+      email: values.email,
+      phone: values.phone || null,
+      website: values.website || null,
+      industry: values.industry || null,
+      location: values.location || null,
+      notes: values.notes || null,
+      status: values.status,
+      source: values.source,
+      deal_value: values.deal_value,
+      probability: values.probability,
+      lead_score: values.lead_score,
+      assigned_to: values.assigned_to || null,
+    }
+
+    if (isEdit) {
+      // Cast builder to any — Supabase builder types collapse with complex Database generics
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const from = supabase.from('leads') as any
+      const { error } = await from.update(payload).eq('id', lead.id)
+      if (error) {
+        toast.error(error.message)
+        setIsPending(false)
+        return
+      }
+      toast.success('Lead updated successfully')
+    } else {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const from = supabase.from('leads') as any
+      const { error } = await from.insert({ ...payload, created_by: userId })
+      if (error) {
+        toast.error(error.message)
+        setIsPending(false)
+        return
+      }
+      toast.success('Lead created successfully')
+    }
+
+    setIsPending(false)
+    router.refresh()
+    onSuccess()
+  }
+
+  return (
+    <Form {...form}>
+      <form onSubmit={form.handleSubmit(onSubmit)} className="flex flex-col h-full">
+        {/* Scrollable body */}
+        <div className="flex-1 overflow-y-auto px-6 py-4 space-y-4">
+
+          {/* Company */}
+          <FormField
+            control={form.control}
+            name="company_name"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Company Name <span className="text-destructive">*</span></FormLabel>
+                <FormControl>
+                  <Input {...field} placeholder="Acme Corp" disabled={isPending} />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          {/* Contact + Email */}
+          <div className="grid grid-cols-2 gap-3">
+            <FormField
+              control={form.control}
+              name="contact_person"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Contact <span className="text-destructive">*</span></FormLabel>
+                  <FormControl>
+                    <Input {...field} placeholder="John Smith" disabled={isPending} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="email"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Email <span className="text-destructive">*</span></FormLabel>
+                  <FormControl>
+                    <Input {...field} type="email" placeholder="john@acme.com" disabled={isPending} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          </div>
+
+          {/* Phone + Website */}
+          <div className="grid grid-cols-2 gap-3">
+            <FormField
+              control={form.control}
+              name="phone"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Phone</FormLabel>
+                  <FormControl>
+                    <Input {...field} value={field.value ?? ''} placeholder="+1 555 0100" disabled={isPending} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="website"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Website</FormLabel>
+                  <FormControl>
+                    <Input {...field} value={field.value ?? ''} placeholder="https://acme.com" disabled={isPending} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          </div>
+
+          <Separator />
+
+          {/* Status + Source */}
+          <div className="grid grid-cols-2 gap-3">
+            <FormField
+              control={form.control}
+              name="status"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Status <span className="text-destructive">*</span></FormLabel>
+                  <Select onValueChange={field.onChange} value={field.value} disabled={isPending}>
+                    <FormControl>
+                      <SelectTrigger><SelectValue /></SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      {LEAD_STATUSES.map((s) => (
+                        <SelectItem key={s} value={s}>{s}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="source"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Source <span className="text-destructive">*</span></FormLabel>
+                  <Select onValueChange={field.onChange} value={field.value} disabled={isPending}>
+                    <FormControl>
+                      <SelectTrigger><SelectValue /></SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      {LEAD_SOURCES.map((s) => (
+                        <SelectItem key={s} value={s}>{s}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          </div>
+
+          {/* Industry + Location */}
+          <div className="grid grid-cols-2 gap-3">
+            <FormField
+              control={form.control}
+              name="industry"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Industry</FormLabel>
+                  <Select
+                    onValueChange={field.onChange}
+                    value={field.value ?? ''}
+                    disabled={isPending}
+                  >
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select industry" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      {INDUSTRIES.map((i) => (
+                        <SelectItem key={i} value={i}>{i}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="location"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Location</FormLabel>
+                  <FormControl>
+                    <Input {...field} value={field.value ?? ''} placeholder="City, Country" disabled={isPending} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          </div>
+
+          <Separator />
+
+          {/* Deal Value + Probability + Score */}
+          <div className="grid grid-cols-3 gap-3">
+            <FormField
+              control={form.control}
+              name="deal_value"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Deal Value ($)</FormLabel>
+                  <FormControl>
+                    <Input
+                      type="number"
+                      min={0}
+                      step="0.01"
+                      value={field.value ?? ''}
+                      onChange={(e) =>
+                        field.onChange(e.target.value === '' ? null : e.target.value)
+                      }
+                      placeholder="0"
+                      disabled={isPending}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="probability"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Probability (%)</FormLabel>
+                  <FormControl>
+                    <Input
+                      type="number"
+                      min={0}
+                      max={100}
+                      value={field.value ?? ''}
+                      onChange={(e) =>
+                        field.onChange(e.target.value === '' ? null : e.target.value)
+                      }
+                      placeholder="0–100"
+                      disabled={isPending}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="lead_score"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Lead Score</FormLabel>
+                  <FormControl>
+                    <Input
+                      type="number"
+                      min={0}
+                      max={100}
+                      value={field.value}
+                      onChange={(e) => field.onChange(e.target.value)}
+                      disabled={isPending}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          </div>
+
+          {/* Assigned To */}
+          <FormField
+            control={form.control}
+            name="assigned_to"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Assigned To</FormLabel>
+                <Select
+                  onValueChange={field.onChange}
+                  value={field.value ?? ''}
+                  disabled={isPending}
+                >
+                  <FormControl>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Unassigned" />
+                    </SelectTrigger>
+                  </FormControl>
+                  <SelectContent>
+                    <SelectItem value="">Unassigned</SelectItem>
+                    {teamMembers.map((m) => (
+                      <SelectItem key={m.id} value={m.id}>
+                        {m.full_name ?? m.id}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          {/* Notes */}
+          <FormField
+            control={form.control}
+            name="notes"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Notes</FormLabel>
+                <FormControl>
+                  <Textarea
+                    {...field}
+                    value={field.value ?? ''}
+                    placeholder="Add notes about this lead..."
+                    rows={3}
+                    disabled={isPending}
+                  />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+        </div>
+
+        {/* Fixed footer */}
+        <div className="border-t px-6 py-4 flex items-center justify-end gap-3 bg-background shrink-0">
+          <Button type="button" variant="outline" onClick={onCancel} disabled={isPending}>
+            Cancel
+          </Button>
+          <Button type="submit" disabled={isPending}>
+            {isPending ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                {isEdit ? 'Updating…' : 'Creating…'}
+              </>
+            ) : isEdit ? (
+              'Update Lead'
+            ) : (
+              'Create Lead'
+            )}
+          </Button>
+        </div>
+      </form>
+    </Form>
+  )
+}

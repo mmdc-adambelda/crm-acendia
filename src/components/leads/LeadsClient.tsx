@@ -137,6 +137,7 @@ export function LeadsClient({
   const [bulkDeleteOpen, setBulkDeleteOpen] = React.useState(false)
   const [csvOpen, setCsvOpen] = React.useState(false)
   const [isDeleting, setIsDeleting] = React.useState(false)
+  const [isAssigning, setIsAssigning] = React.useState(false)
 
   // Clear autoOpen param from URL after opening
   React.useEffect(() => {
@@ -216,6 +217,22 @@ export function LeadsClient({
     router.refresh()
   }
 
+  async function handleBulkAssign(memberId: string) {
+    setIsAssigning(true)
+    const supabase = createClient()
+    const ids = Array.from(selected)
+    const { error } = await supabase.from('leads').update({ assigned_to: memberId }).in('id', ids)
+    setIsAssigning(false)
+    if (error) {
+      toast.error(error.message)
+      return
+    }
+    const member = teamMembers.find(m => m.id === memberId)
+    toast.success(`Assigned ${ids.length} lead${ids.length !== 1 ? 's' : ''} to ${member?.full_name ?? 'user'}`)
+    setSelected(new Set())
+    router.refresh()
+  }
+
   async function handleBulkDelete() {
     setIsDeleting(true)
     const supabase = createClient()
@@ -248,15 +265,32 @@ export function LeadsClient({
         </div>
         <div className="flex items-center gap-2">
           {someSelected && (
-            <Button
-              variant="destructive"
-              size="sm"
-              onClick={() => setBulkDeleteOpen(true)}
-              className="gap-2"
-            >
-              <Trash2 className="h-4 w-4" />
-              Delete {selected.size}
-            </Button>
+            <>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline" size="sm" className="gap-2" disabled={isAssigning}>
+                    <Users2 className="h-4 w-4" />
+                    Assign {selected.size}
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  {teamMembers.map((m) => (
+                    <DropdownMenuItem key={m.id} onClick={() => handleBulkAssign(m.id)}>
+                      {m.full_name ?? m.id}
+                    </DropdownMenuItem>
+                  ))}
+                </DropdownMenuContent>
+              </DropdownMenu>
+              <Button
+                variant="destructive"
+                size="sm"
+                onClick={() => setBulkDeleteOpen(true)}
+                className="gap-2"
+              >
+                <Trash2 className="h-4 w-4" />
+                Delete {selected.size}
+              </Button>
+            </>
           )}
           <Button variant="outline" size="sm" onClick={() => setCsvOpen(true)} className="gap-2">
             <Upload className="h-4 w-4" />
@@ -496,7 +530,7 @@ export function LeadsClient({
       />
 
       {/* CSV Import */}
-      <CSVImport open={csvOpen} onOpenChange={setCsvOpen} userId={userId} />
+      <CSVImport open={csvOpen} onOpenChange={setCsvOpen} userId={userId} teamMembers={teamMembers} />
     </>
   )
 }

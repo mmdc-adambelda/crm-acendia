@@ -14,12 +14,22 @@ import {
   DialogTitle,
   DialogFooter,
 } from '@/components/ui/dialog'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 import type { LeadStatus } from '@/types'
+
+type TeamMember = { id: string; full_name: string | null }
 
 interface CSVImportProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   userId: string
+  teamMembers: TeamMember[]
 }
 
 type CSVRow = Record<string, string>
@@ -133,16 +143,18 @@ function validateRow(row: CSVRow): string[] {
   return errors
 }
 
-export function CSVImport({ open, onOpenChange, userId }: CSVImportProps) {
+export function CSVImport({ open, onOpenChange, userId, teamMembers }: CSVImportProps) {
   const router = useRouter()
   const [rows, setRows] = React.useState<CSVRow[]>([])
   const [errors, setErrors] = React.useState<Map<number, string[]>>(new Map())
   const [isPending, setIsPending] = React.useState(false)
+  const [assignToId, setAssignToId] = React.useState<string>(userId)
   const fileRef = React.useRef<HTMLInputElement>(null)
 
   function reset() {
     setRows([])
     setErrors(new Map())
+    setAssignToId(userId)
     if (fileRef.current) fileRef.current.value = ''
   }
 
@@ -192,6 +204,7 @@ export function CSVImport({ open, onOpenChange, userId }: CSVImportProps) {
       source: 'Cold Outreach' as const,
       notes: buildNotes(row),
       created_by: userId,
+      assigned_to: assignToId,
     }))
 
     // Cast builder to any — Supabase builder types collapse with complex Database generics
@@ -245,6 +258,25 @@ export function CSVImport({ open, onOpenChange, userId }: CSVImportProps) {
               Outcome + Call Status automatically map to Lead Status. Attempts, Callback Time, Follow-up Date, and Next Action are saved in Notes.
             </p>
           </div>
+
+          {/* Assign to */}
+          {teamMembers.length > 0 && (
+            <div className="flex items-center gap-3">
+              <label className="text-sm font-medium shrink-0">Assign all leads to</label>
+              <Select value={assignToId} onValueChange={setAssignToId}>
+                <SelectTrigger className="flex-1">
+                  <SelectValue placeholder="Select team member" />
+                </SelectTrigger>
+                <SelectContent>
+                  {teamMembers.map((m) => (
+                    <SelectItem key={m.id} value={m.id}>
+                      {m.full_name ?? m.id}{m.id === userId ? ' (me)' : ''}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
 
           {/* File upload */}
           <div>

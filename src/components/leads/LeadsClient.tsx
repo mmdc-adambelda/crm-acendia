@@ -221,7 +221,8 @@ export function LeadsClient({
     setIsAssigning(true)
     const supabase = createClient()
     const ids = Array.from(selected)
-    const { error } = await supabase.from('leads').update({ assigned_to: memberId }).in('id', ids)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { error } = await (supabase.from('leads') as any).update({ assigned_to: memberId }).in('id', ids)
     setIsAssigning(false)
     if (error) {
       toast.error(error.message)

@@ -311,7 +311,7 @@ export default async function LeadDetailPage({
                           )}
                         </div>
                         {call.notes && (
-                          <p className="text-xs text-muted-foreground mt-1 truncate">
+                          <p className="text-xs text-muted-foreground mt-1 whitespace-pre-wrap break-words">
                             {call.notes}
                           </p>
                         )}

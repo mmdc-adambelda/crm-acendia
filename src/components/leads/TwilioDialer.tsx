@@ -10,22 +10,26 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
+import { PostCallLogDialog } from '@/components/dialer/PostCallLogDialog'
 
 type CallStatus = 'idle' | 'loading' | 'ready' | 'connecting' | 'in-call' | 'ended'
 
 interface TwilioDialerProps {
   phoneNumber: string
+  leadId?: string
   leadName?: string
+  userId: string
   /** Passed from the server so the picker is visible before the first click */
   initialCallerIds?: string[]
 }
 
-export function TwilioDialer({ phoneNumber, leadName, initialCallerIds = [] }: TwilioDialerProps) {
+export function TwilioDialer({ phoneNumber, leadId, leadName, userId, initialCallerIds = [] }: TwilioDialerProps) {
   const [status, setStatus] = React.useState<CallStatus>('idle')
   const [isMuted, setIsMuted] = React.useState(false)
   const [seconds, setSeconds] = React.useState(0)
   const [callerIds, setCallerIds] = React.useState<string[]>(initialCallerIds)
   const [selectedCallerId, setSelectedCallerId] = React.useState(initialCallerIds[0] ?? '')
+  const [postCallOpen, setPostCallOpen] = React.useState(false)
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const deviceRef = React.useRef<any>(null)
@@ -136,13 +140,14 @@ export function TwilioDialer({ phoneNumber, leadName, initialCallerIds = [] }: T
   function endCall() {
     cleanup()
     setStatus('ended')
-    setTimeout(() => setStatus('ready'), 3000)
+    setPostCallOpen(true)
   }
 
   function hangUp() {
     if (callRef.current) callRef.current.disconnect()
     cleanup()
-    setStatus('ready')
+    setStatus('ended')
+    setPostCallOpen(true)
   }
 
   function cleanup() {
@@ -265,9 +270,21 @@ export function TwilioDialer({ phoneNumber, leadName, initialCallerIds = [] }: T
         </div>
       )}
 
-      {status === 'ended' && (
+      {status === 'ended' && !postCallOpen && (
         <p className="text-xs text-muted-foreground">Call ended</p>
       )}
+
+      <PostCallLogDialog
+        open={postCallOpen}
+        onOpenChange={(v) => {
+          setPostCallOpen(v)
+          if (!v) setStatus('ready')
+        }}
+        leadId={leadId}
+        leadName={leadName}
+        userId={userId}
+        durationSeconds={seconds}
+      />
     </div>
   )
 }

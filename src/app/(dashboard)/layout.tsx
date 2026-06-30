@@ -2,6 +2,7 @@ import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { Sidebar } from '@/components/layout/Sidebar'
 import { TopNav } from '@/components/layout/TopNav'
+import { DialerPad } from '@/components/dialer/DialerPad'
 
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
   const supabase = await createClient()
@@ -17,6 +18,11 @@ export default async function DashboardLayout({ children }: { children: React.Re
     .eq('id', user.id)
     .single()
 
+  const callerIds = [
+    process.env.TWILIO_PHONE_1,
+    process.env.TWILIO_PHONE_2,
+  ].filter(Boolean) as string[]
+
   return (
     <div className="flex h-screen overflow-hidden bg-background">
       <Sidebar />
@@ -26,6 +32,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
           <div className="p-6">{children}</div>
         </main>
       </div>
+      <DialerPad userId={user.id} initialCallerIds={callerIds} />
     </div>
   )
 }

@@ -211,7 +211,9 @@ export default async function LeadDetailPage({
                     <p className="text-xs text-muted-foreground">Phone</p>
                     <TwilioDialer
                       phoneNumber={lead.phone}
+                      leadId={lead.id}
                       leadName={lead.company_name}
+                      userId={userId}
                       initialCallerIds={[
                         process.env.TWILIO_PHONE_1,
                         process.env.TWILIO_PHONE_2,

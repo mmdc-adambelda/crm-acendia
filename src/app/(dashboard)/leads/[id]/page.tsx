@@ -25,6 +25,7 @@ import { StatusBadge, LeadScoreBadge } from '@/components/shared/StatusBadge'
 import { ActivityTimeline } from '@/components/leads/ActivityTimeline'
 import { LeadDetailActions } from '@/components/leads/LeadDetailActions'
 import { LeadQuickActions } from '@/components/leads/LeadQuickActions'
+import { TwilioDialer } from '@/components/leads/TwilioDialer'
 import { formatCurrency, formatDate, formatRelativeTime, getInitials } from '@/lib/utils'
 import type { ActivityType, LeadStatus, TaskPriority, CallOutcome } from '@/types'
 
@@ -200,7 +201,20 @@ export default async function LeadDetailPage({
             </CardHeader>
             <CardContent className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <InfoRow icon={Mail} label="Email" value={lead.email} href={`mailto:${lead.email}`} />
-              <InfoRow icon={Phone} label="Phone" value={lead.phone} href={lead.phone ? `tel:${lead.phone}` : undefined} />
+              {/* Phone — uses TwilioDialer for click-to-call when number is present */}
+              {lead.phone ? (
+                <div className="flex items-start gap-3">
+                  <div className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-muted">
+                    <Phone className="h-3.5 w-3.5 text-muted-foreground" />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-xs text-muted-foreground">Phone</p>
+                    <TwilioDialer phoneNumber={lead.phone} leadName={lead.company_name} />
+                  </div>
+                </div>
+              ) : (
+                <InfoRow icon={Phone} label="Phone" value={null} />
+              )}
               <InfoRow icon={Globe} label="Website" value={lead.website} href={lead.website ?? undefined} />
               <InfoRow icon={Building2} label="Industry" value={lead.industry} />
               <InfoRow icon={MapPin} label="Location" value={lead.location} />

@@ -16,14 +16,16 @@ type CallStatus = 'idle' | 'loading' | 'ready' | 'connecting' | 'in-call' | 'end
 interface TwilioDialerProps {
   phoneNumber: string
   leadName?: string
+  /** Passed from the server so the picker is visible before the first click */
+  initialCallerIds?: string[]
 }
 
-export function TwilioDialer({ phoneNumber, leadName }: TwilioDialerProps) {
+export function TwilioDialer({ phoneNumber, leadName, initialCallerIds = [] }: TwilioDialerProps) {
   const [status, setStatus] = React.useState<CallStatus>('idle')
   const [isMuted, setIsMuted] = React.useState(false)
   const [seconds, setSeconds] = React.useState(0)
-  const [callerIds, setCallerIds] = React.useState<string[]>([])
-  const [selectedCallerId, setSelectedCallerId] = React.useState('')
+  const [callerIds, setCallerIds] = React.useState<string[]>(initialCallerIds)
+  const [selectedCallerId, setSelectedCallerId] = React.useState(initialCallerIds[0] ?? '')
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const deviceRef = React.useRef<any>(null)
@@ -163,8 +165,8 @@ export function TwilioDialer({ phoneNumber, leadName }: TwilioDialerProps) {
 
   return (
     <div className="flex flex-col gap-1.5">
-      {/* Phone row: number + call button + caller ID picker */}
-      <div className="flex items-center gap-2 flex-wrap">
+      {/* Phone number + call button row */}
+      <div className="flex items-center gap-2">
         <a
           href={`tel:${phoneNumber}`}
           className="text-sm font-medium hover:underline"
@@ -178,7 +180,7 @@ export function TwilioDialer({ phoneNumber, leadName }: TwilioDialerProps) {
             size="icon"
             className="h-7 w-7 shrink-0 text-green-600 hover:text-green-700 hover:bg-green-50 dark:hover:bg-green-950/30"
             onClick={startCall}
-            disabled={status === 'loading' || status === 'ended'}
+            disabled={status === 'loading' || status === 'ended' || (callerIds.length > 0 && !selectedCallerId)}
             title={`Call ${leadName ?? phoneNumber} via Acendia CRM`}
           >
             {status === 'loading' ? (
@@ -188,9 +190,12 @@ export function TwilioDialer({ phoneNumber, leadName }: TwilioDialerProps) {
             )}
           </Button>
         )}
+      </div>
 
-        {/* Caller ID selector — only when device is ready and 2 numbers are configured */}
-        {callerIds.length > 1 && !active && (
+      {/* Caller ID selector — always visible when 2 numbers configured, before and after calls */}
+      {callerIds.length > 1 && !active && (
+        <div className="flex items-center gap-1.5">
+          <span className="text-[10px] text-muted-foreground">From:</span>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button
@@ -198,11 +203,11 @@ export function TwilioDialer({ phoneNumber, leadName }: TwilioDialerProps) {
                 size="sm"
                 className="h-6 text-[10px] px-2 gap-1 text-muted-foreground font-normal"
               >
-                From: {selectedCallerId}
+                {selectedCallerId || 'Select number'}
                 <ChevronDown className="h-3 w-3" />
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="start" className="text-xs">
+            <DropdownMenuContent align="start">
               {callerIds.map(id => (
                 <DropdownMenuItem
                   key={id}
@@ -215,9 +220,8 @@ export function TwilioDialer({ phoneNumber, leadName }: TwilioDialerProps) {
               ))}
             </DropdownMenuContent>
           </DropdownMenu>
-        )}
-      </div>
-
+        </div>
+      )}
       {/* In-call control bar */}
       {active && (
         <div className="flex items-center gap-2 rounded-lg border border-green-200 dark:border-green-800 bg-green-50 dark:bg-green-950/30 px-3 py-1.5">

@@ -209,7 +209,14 @@ export default async function LeadDetailPage({
                   </div>
                   <div className="min-w-0">
                     <p className="text-xs text-muted-foreground">Phone</p>
-                    <TwilioDialer phoneNumber={lead.phone} leadName={lead.company_name} />
+                    <TwilioDialer
+                      phoneNumber={lead.phone}
+                      leadName={lead.company_name}
+                      initialCallerIds={[
+                        process.env.TWILIO_PHONE_1,
+                        process.env.TWILIO_PHONE_2,
+                      ].filter(Boolean) as string[]}
+                    />
                   </div>
                 </div>
               ) : (

@@ -23,6 +23,13 @@ interface TwilioDialerProps {
   initialCallerIds?: string[]
 }
 
+const DTMF_KEYS = [
+  [{ d: '1', s: '' }, { d: '2', s: 'ABC' }, { d: '3', s: 'DEF' }],
+  [{ d: '4', s: 'GHI' }, { d: '5', s: 'JKL' }, { d: '6', s: 'MNO' }],
+  [{ d: '7', s: 'PQRS' }, { d: '8', s: 'TUV' }, { d: '9', s: 'WXYZ' }],
+  [{ d: '*', s: '' }, { d: '0', s: '+' }, { d: '#', s: '' }],
+]
+
 export function TwilioDialer({ phoneNumber, leadId, leadName, userId, initialCallerIds = [] }: TwilioDialerProps) {
   const [status, setStatus] = React.useState<CallStatus>('idle')
   const [isMuted, setIsMuted] = React.useState(false)
@@ -30,6 +37,7 @@ export function TwilioDialer({ phoneNumber, leadId, leadName, userId, initialCal
   const [callerIds, setCallerIds] = React.useState<string[]>(initialCallerIds)
   const [selectedCallerId, setSelectedCallerId] = React.useState(initialCallerIds[0] ?? '')
   const [postCallOpen, setPostCallOpen] = React.useState(false)
+  const [dtmfInput, setDtmfInput] = React.useState('')
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const deviceRef = React.useRef<any>(null)
@@ -154,6 +162,7 @@ export function TwilioDialer({ phoneNumber, leadId, leadName, userId, initialCal
     if (timerRef.current) { clearInterval(timerRef.current); timerRef.current = null }
     callRef.current = null
     setIsMuted(false)
+    setDtmfInput('')
   }
 
   function toggleMute() {
@@ -161,6 +170,12 @@ export function TwilioDialer({ phoneNumber, leadId, leadName, userId, initialCal
     const next = !isMuted
     callRef.current.mute(next)
     setIsMuted(next)
+  }
+
+  function sendDtmf(key: string) {
+    if (!callRef.current) return
+    callRef.current.sendDigits(key)
+    setDtmfInput(prev => (prev + key).slice(-8))
   }
 
   const fmt = (s: number) =>
@@ -267,6 +282,30 @@ export function TwilioDialer({ phoneNumber, leadId, leadName, userId, initialCal
           >
             <PhoneOff className="h-3.5 w-3.5 text-red-500" />
           </Button>
+        </div>
+      )}
+
+      {/* DTMF keypad — shown during active call for IVR navigation */}
+      {status === 'in-call' && (
+        <div className="rounded-lg border bg-muted/20 p-2 space-y-1.5">
+          <div className="flex items-center justify-between px-1">
+            <span className="text-[10px] text-muted-foreground">IVR Keypad</span>
+            <span className="font-mono text-xs text-muted-foreground tracking-widest min-w-[4rem] text-right">
+              {dtmfInput || '·'}
+            </span>
+          </div>
+          <div className="grid grid-cols-3 gap-1">
+            {DTMF_KEYS.flat().map(({ d, s }) => (
+              <button
+                key={d}
+                onClick={() => sendDtmf(d)}
+                className="flex flex-col items-center justify-center h-9 rounded-lg border bg-background hover:bg-muted active:scale-95 transition-all select-none"
+              >
+                <span className="text-sm font-medium leading-none">{d}</span>
+                {s && <span className="text-[9px] text-muted-foreground leading-none mt-0.5">{s}</span>}
+              </button>
+            ))}
+          </div>
         </div>
       )}
 

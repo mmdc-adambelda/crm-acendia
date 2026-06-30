@@ -93,7 +93,13 @@ export function DialerPad({ userId, initialCallerIds = [] }: DialerPadProps) {
   }, [searchQuery])
 
   function pressKey(key: string) {
-    setPhoneInput(prev => prev + key)
+    if (status === 'in-call' && callRef.current) {
+      callRef.current.sendDigits(key)
+      // Show last 8 pressed digits as DTMF feedback
+      setPhoneInput(prev => (prev + key).slice(-8))
+    } else {
+      setPhoneInput(prev => prev + key)
+    }
   }
 
   function backspace() {
@@ -293,7 +299,7 @@ export function DialerPad({ userId, initialCallerIds = [] }: DialerPadProps) {
               <Input
                 value={phoneInput}
                 onChange={e => !active && setPhoneInput(e.target.value)}
-                placeholder="+64 9 000 0000"
+                placeholder={status === 'in-call' ? 'DTMF tones…' : '+64 9 000 0000'}
                 className="text-center font-mono text-base tracking-widest h-10 flex-1"
                 readOnly={active}
               />
@@ -325,20 +331,28 @@ export function DialerPad({ userId, initialCallerIds = [] }: DialerPadProps) {
               </div>
             )}
 
-            {/* Dial pad — hidden while in call */}
-            {!active && (
-              <div className="grid grid-cols-3 gap-1.5">
-                {DIAL_KEYS.flat().map(({ d, s }) => (
-                  <button
-                    key={d}
-                    onClick={() => pressKey(d)}
-                    className="flex flex-col items-center justify-center h-11 rounded-xl border bg-card hover:bg-muted active:scale-95 transition-all select-none"
-                  >
-                    <span className="text-sm font-medium leading-none">{d}</span>
-                    {s && <span className="text-[9px] text-muted-foreground leading-none mt-0.5">{s}</span>}
-                  </button>
-                ))}
-              </div>
+            {/* Dial pad — shown before and during call (DTMF in-call) */}
+            {status !== 'connecting' && (
+              <>
+                {status === 'in-call' && (
+                  <p className="text-[10px] text-center text-muted-foreground -mb-1">
+                    IVR Keypad — tap to send tones
+                  </p>
+                )}
+                <div className="grid grid-cols-3 gap-1.5">
+                  {DIAL_KEYS.flat().map(({ d, s }) => (
+                    <button
+                      key={d}
+                      onClick={() => pressKey(d)}
+                      className="flex flex-col items-center justify-center h-11 rounded-xl border bg-card hover:bg-muted active:scale-95 transition-all select-none"
+                    >
+                      <span className="text-sm font-medium leading-none">{d}</span>
+                      {s && <span className="text-[9px] text-muted-foreground leading-none mt-0.5">{s}</span>}
+                    </button>
+                  ))}
+                </div>
+              </>
+
             )}
 
             {/* Caller ID selector + Call button */}

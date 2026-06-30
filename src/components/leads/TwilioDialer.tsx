@@ -97,7 +97,9 @@ export function TwilioDialer({ phoneNumber, leadName }: TwilioDialerProps) {
     try {
       const call = await device.connect({
         params: {
-          To: phoneNumber,
+          // Use to_number instead of To to avoid collision with
+          // Twilio's built-in To field (set to the client identity)
+          to_number: phoneNumber,
           from_number: selectedCallerId,
         },
       })

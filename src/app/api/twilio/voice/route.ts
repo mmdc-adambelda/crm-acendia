@@ -6,16 +6,28 @@ export const runtime = 'nodejs'
 // It must return TwiML instructing Twilio how to connect the call.
 export async function POST(req: NextRequest) {
   const body = await req.formData()
-  const to = body.get('To') as string | null
-  const fromNumber = (body.get('from_number') as string | null) ?? process.env.TWILIO_PHONE_1 ?? ''
+
+  // Use to_number (custom param) to avoid collision with Twilio's built-in To field
+  // which Twilio sets to the client identity (e.g. "client:user-uuid")
+  const rawTo = (body.get('to_number') ?? body.get('To')) as string | null
+  const to = rawTo?.replace(/[\s\-().]/g, '') ?? null  // strip formatting chars
+
+  const fromNumber = (body.get('from_number') as string | null)?.replace(/\s/g, '')
+    ?? process.env.TWILIO_PHONE_1?.replace(/\s/g, '')
+    ?? ''
 
   const twilio = (await import('twilio')).default
   const twiml = new twilio.twiml.VoiceResponse()
 
-  // Basic validation — must be a plausible E.164 phone number
-  if (to && /^\+?[1-9]\d{6,14}$/.test(to.replace(/\s/g, ''))) {
+  const isValidPhone = to && /^\+?[1-9]\d{5,14}$/.test(to)
+  const hasCallerId = fromNumber.length > 0
+
+  if (isValidPhone && hasCallerId) {
     const dial = twiml.dial({ callerId: fromNumber, timeout: 30 })
-    dial.number(to.replace(/\s/g, ''))
+    dial.number(to)
+  } else if (!hasCallerId) {
+    // Caller ID missing — env var not configured
+    twiml.say('Outbound calling is not configured. Please contact your administrator.')
   } else {
     twiml.say('We could not connect your call. Please check the number and try again.')
   }

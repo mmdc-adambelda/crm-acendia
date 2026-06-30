@@ -17,6 +17,7 @@ import { LeadsBySourceChart } from '@/components/dashboard/LeadsBySourceChart'
 import { MonthlyDealsChart } from '@/components/dashboard/MonthlyDealsChart'
 import { RecentLeads } from '@/components/dashboard/RecentLeads'
 import { UpcomingTasks } from '@/components/dashboard/UpcomingTasks'
+import { OutboundCallDashboard } from '@/components/dashboard/OutboundCallDashboard'
 
 export const metadata: Metadata = { title: 'Dashboard' }
 export const dynamic = 'force-dynamic'
@@ -72,8 +73,11 @@ export default async function DashboardPage() {
       .lt('call_date', endOfDay),
   ])
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const sb = supabase as any
+
   // ── Batch 2: Chart + table data ─────────────────────────────────────────────
-  const [allLeadsResult, closedDealsResult, recentLeadsResult, upcomingTasksResult] =
+  const [allLeadsResult, closedDealsResult, recentLeadsResult, upcomingTasksResult, callLogsResult] =
     await Promise.all([
       supabase.from('leads').select('status, source, deal_value'),
       supabase
@@ -93,6 +97,11 @@ export default async function DashboardPage() {
         .not('due_date', 'is', null)
         .order('due_date', { ascending: true })
         .limit(6),
+      sb
+        .from('call_logs')
+        .select('call_outcome, call_date')
+        .order('call_date', { ascending: false })
+        .limit(1000),
     ])
 
   // Explicit casts — Supabase builder types collapse to never for certain filter combos
@@ -100,9 +109,12 @@ export default async function DashboardPage() {
   type LeadChartRow = { status: string; source: string; deal_value: number | null }
   type LeadClosedRow = { status: string; deal_value: number | null; updated_at: string }
 
+  type CallLogKpi = { call_outcome: string; call_date: string }
+
   const pipelineValues = (pipelineValueResult.data as LeadDealValue[] | null) ?? []
   const allLeads = (allLeadsResult.data as LeadChartRow[] | null) ?? []
   const closedDeals = (closedDealsResult.data as LeadClosedRow[] | null) ?? []
+  const callLogs = (callLogsResult.data as CallLogKpi[] | null) ?? []
 
   // ── KPI calculations ────────────────────────────────────────────────────────
   const totalLeads = totalResult.count ?? 0
@@ -221,6 +233,9 @@ export default async function DashboardPage() {
 
       {/* Monthly Trend */}
       <MonthlyDealsChart data={monthlyDealsData} />
+
+      {/* Outbound Call Dashboard */}
+      <OutboundCallDashboard logs={callLogs} />
 
       {/* Recent Leads + Upcoming Tasks */}
       <div className="grid gap-4 grid-cols-1 lg:grid-cols-2">

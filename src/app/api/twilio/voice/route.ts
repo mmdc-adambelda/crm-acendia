@@ -14,6 +14,7 @@ export async function POST(req: NextRequest) {
 
   const fromNumber = (body.get('from_number') as string | null)?.replace(/\s/g, '')
     ?? process.env.TWILIO_PHONE_1?.replace(/\s/g, '')
+    ?? process.env.TWILIO_PHONE_2?.replace(/\s/g, '')
     ?? ''
 
   const twilio = (await import('twilio')).default

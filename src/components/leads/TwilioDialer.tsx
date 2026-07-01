@@ -198,7 +198,7 @@ export function TwilioDialer({ phoneNumber, leadId, leadName, userId, initialCal
           <Button
             variant="ghost"
             size="icon"
-            className="h-7 w-7 shrink-0 text-green-600 hover:text-green-700 hover:bg-green-50 dark:hover:bg-green-950/30"
+            className="h-7 w-7 shrink-0 text-foreground hover:bg-muted"
             onClick={startCall}
             disabled={status === 'loading' || status === 'ended' || (callerIds.length > 0 && !selectedCallerId)}
             title={`Call ${leadName ?? phoneNumber} via Acendia CRM`}
@@ -234,7 +234,7 @@ export function TwilioDialer({ phoneNumber, leadId, leadName, userId, initialCal
                   onClick={() => setSelectedCallerId(id)}
                   className="text-xs gap-2"
                 >
-                  {id === selectedCallerId && <span className="text-green-600">✓</span>}
+                  {id === selectedCallerId && <span className="text-foreground">✓</span>}
                   {id}
                 </DropdownMenuItem>
               ))}
@@ -244,18 +244,18 @@ export function TwilioDialer({ phoneNumber, leadId, leadName, userId, initialCal
       )}
       {/* In-call control bar */}
       {active && (
-        <div className="flex items-center gap-2 rounded-lg border border-green-200 dark:border-green-800 bg-green-50 dark:bg-green-950/30 px-3 py-1.5">
+        <div className="flex items-center gap-2 rounded-lg border bg-muted px-3 py-1.5">
           <span
-            className={`h-2 w-2 rounded-full shrink-0 ${
-              status === 'in-call' ? 'bg-green-500 animate-pulse' : 'bg-amber-400 animate-pulse'
+            className={`h-2 w-2 rounded-full shrink-0 animate-pulse ${
+              status === 'in-call' ? 'bg-foreground' : 'bg-amber-400'
             }`}
           />
           {status === 'connecting' ? (
-            <span className="text-xs text-green-700 dark:text-green-400 flex-1">
+            <span className="text-xs text-muted-foreground flex-1">
               Connecting to {phoneNumber}…
             </span>
           ) : (
-            <span className="text-xs font-mono text-green-700 dark:text-green-400 flex-1">
+            <span className="text-xs font-mono text-foreground flex-1">
               {fmt(seconds)}
             </span>
           )}
@@ -270,7 +270,7 @@ export function TwilioDialer({ phoneNumber, leadId, leadName, userId, initialCal
             {isMuted ? (
               <MicOff className="h-3.5 w-3.5 text-amber-500" />
             ) : (
-              <Mic className="h-3.5 w-3.5 text-green-600" />
+              <Mic className="h-3.5 w-3.5 text-foreground" />
             )}
           </Button>
           <Button

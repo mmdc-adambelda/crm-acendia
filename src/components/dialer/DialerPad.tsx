@@ -220,22 +220,22 @@ export function DialerPad({ userId, initialCallerIds = [] }: DialerPadProps) {
         <button
           onClick={() => setIsOpen(true)}
           title="Open Dialer"
-          className="fixed bottom-6 right-6 z-50 flex h-14 w-14 items-center justify-center rounded-full bg-green-600 hover:bg-green-700 text-white shadow-xl transition-colors"
+          className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 flex h-14 w-14 items-center justify-center rounded-full bg-foreground hover:bg-foreground/80 text-background shadow-xl transition-colors"
         >
           <Phone className="h-6 w-6" />
           {active && (
-            <span className="absolute top-1 right-1 h-3 w-3 rounded-full bg-red-500 animate-pulse border-2 border-white" />
+            <span className="absolute top-1 right-1 h-3 w-3 rounded-full bg-red-500 animate-pulse border-2 border-background" />
           )}
         </button>
       )}
 
       {/* Expanded dialer panel */}
       {isOpen && (
-        <div className="fixed bottom-6 right-6 z-50 w-72 rounded-2xl border bg-background shadow-2xl overflow-hidden flex flex-col">
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 w-72 rounded-2xl border bg-background shadow-2xl overflow-hidden flex flex-col">
           {/* Header */}
           <div className="flex items-center justify-between px-4 py-3 border-b bg-muted/30">
             <div className="flex items-center gap-2">
-              <Phone className="h-4 w-4 text-green-600" />
+              <Phone className="h-4 w-4 text-foreground" />
               <span className="text-sm font-semibold">Dialer</span>
             </div>
             <Button
@@ -312,17 +312,17 @@ export function DialerPad({ userId, initialCallerIds = [] }: DialerPadProps) {
 
             {/* In-call status bar */}
             {active && (
-              <div className="flex items-center gap-2 rounded-lg border border-green-200 dark:border-green-800 bg-green-50 dark:bg-green-950/30 px-3 py-2">
-                <span className={`h-2 w-2 rounded-full shrink-0 animate-pulse ${status === 'in-call' ? 'bg-green-500' : 'bg-amber-400'}`} />
+              <div className="flex items-center gap-2 rounded-lg border bg-muted px-3 py-2">
+                <span className={`h-2 w-2 rounded-full shrink-0 animate-pulse ${status === 'in-call' ? 'bg-foreground' : 'bg-amber-400'}`} />
                 {status === 'connecting' ? (
-                  <span className="text-xs text-green-700 dark:text-green-400 flex-1">Connecting…</span>
+                  <span className="text-xs text-muted-foreground flex-1">Connecting…</span>
                 ) : (
-                  <span className="text-xs font-mono text-green-700 dark:text-green-400 flex-1">{fmt(seconds)}</span>
+                  <span className="text-xs font-mono text-foreground flex-1">{fmt(seconds)}</span>
                 )}
                 <Button variant="ghost" size="icon" className="h-6 w-6" onClick={toggleMute} title={isMuted ? 'Unmute' : 'Mute'}>
                   {isMuted
                     ? <MicOff className="h-3.5 w-3.5 text-amber-500" />
-                    : <Mic className="h-3.5 w-3.5 text-green-600" />
+                    : <Mic className="h-3.5 w-3.5 text-foreground" />
                   }
                 </Button>
                 <Button variant="ghost" size="icon" className="h-6 w-6" onClick={hangUp} title="Hang up">
@@ -379,7 +379,7 @@ export function DialerPad({ userId, initialCallerIds = [] }: DialerPadProps) {
                             onClick={() => setSelectedCallerId(id)}
                             className="text-xs gap-2"
                           >
-                            {id === selectedCallerId && <span className="text-green-600">✓</span>}
+                            {id === selectedCallerId && <span className="text-foreground">✓</span>}
                             {id}
                           </DropdownMenuItem>
                         ))}
@@ -389,7 +389,7 @@ export function DialerPad({ userId, initialCallerIds = [] }: DialerPadProps) {
                 )}
 
                 <Button
-                  className="w-full bg-green-600 hover:bg-green-700 text-white gap-2"
+                  className="w-full gap-2"
                   onClick={startCall}
                   disabled={!canCall}
                 >

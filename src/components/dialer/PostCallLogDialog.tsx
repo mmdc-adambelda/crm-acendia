@@ -111,7 +111,18 @@ export function PostCallLogDialog({
     toast.success('Call logged')
     onOpenChange(false)
     router.refresh()
-    onSaved?.(savedLog?.id ?? '')
+
+    const logId = savedLog?.id ?? ''
+    onSaved?.(logId)
+
+    // Fire-and-forget: claim any recording that arrived before this log was submitted
+    if (logId && twilioCallSid) {
+      fetch('/api/twilio/claim-recording', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ callLogId: logId, callSid: twilioCallSid }),
+      }).catch(() => { /* non-critical */ })
+    }
   }
 
   return (

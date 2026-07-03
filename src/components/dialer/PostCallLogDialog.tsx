@@ -52,6 +52,7 @@ interface PostCallLogDialogProps {
   leadName?: string | null
   userId: string
   durationSeconds: number
+  twilioCallSid?: string | null
   onSaved?: () => void
 }
 
@@ -62,6 +63,7 @@ export function PostCallLogDialog({
   leadName,
   userId,
   durationSeconds,
+  twilioCallSid,
   onSaved,
 }: PostCallLogDialogProps) {
   const router = useRouter()
@@ -91,6 +93,7 @@ export function PostCallLogDialog({
       call_outcome: values.call_outcome,
       notes: values.notes?.trim() || null,
       follow_up_date: values.follow_up_date || null,
+      twilio_call_sid: twilioCallSid ?? null,
     }
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any

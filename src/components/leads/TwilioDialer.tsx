@@ -38,6 +38,7 @@ export function TwilioDialer({ phoneNumber, leadId, leadName, userId, initialCal
   const [selectedCallerId, setSelectedCallerId] = React.useState(initialCallerIds[0] ?? '')
   const [postCallOpen, setPostCallOpen] = React.useState(false)
   const [dtmfInput, setDtmfInput] = React.useState('')
+  const [twilioCallSid, setTwilioCallSid] = React.useState<string | null>(null)
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const deviceRef = React.useRef<any>(null)
@@ -120,6 +121,8 @@ export function TwilioDialer({ phoneNumber, leadId, leadName, userId, initialCal
       callRef.current = call
 
       call.on('accept', () => {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        setTwilioCallSid((call as any).parameters?.CallSid ?? null)
         setStatus('in-call')
         timerRef.current = setInterval(() => setSeconds(s => s + 1), 1000)
       })
@@ -163,6 +166,7 @@ export function TwilioDialer({ phoneNumber, leadId, leadName, userId, initialCal
     callRef.current = null
     setIsMuted(false)
     setDtmfInput('')
+    setTwilioCallSid(null)
   }
 
   function toggleMute() {
@@ -323,6 +327,7 @@ export function TwilioDialer({ phoneNumber, leadId, leadName, userId, initialCal
         leadName={leadName}
         userId={userId}
         durationSeconds={seconds}
+        twilioCallSid={twilioCallSid}
       />
     </div>
   )

@@ -22,6 +22,7 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { CallFilters } from '@/components/calls/CallFilters'
+import { CallRecordingPlayer } from '@/components/calls/CallRecordingPlayer'
 import { formatDate, getInitials } from '@/lib/utils'
 import { CALL_OUTCOMES } from '@/types'
 import type { CallOutcome } from '@/types'
@@ -77,6 +78,7 @@ export default async function CallsPage({
       notes,
       follow_up_date,
       lead_id,
+      recording_sid,
       lead:leads(id, company_name, contact_person),
       agent:profiles!call_logs_made_by_fkey(id, full_name)
     `)
@@ -97,6 +99,7 @@ export default async function CallsPage({
     notes: string | null
     follow_up_date: string | null
     lead_id: string | null
+    recording_sid: string | null
     lead: { id: string; company_name: string; contact_person: string } | null
     agent: { id: string; full_name: string | null } | null
   }
@@ -176,6 +179,7 @@ export default async function CallsPage({
                     <TableHead>Follow-up</TableHead>
                     <TableHead>Agent</TableHead>
                     <TableHead>Notes</TableHead>
+                    <TableHead>Recording</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -245,6 +249,13 @@ export default async function CallsPage({
                           ) : (
                             <span className="text-muted-foreground text-sm">—</span>
                           )}
+                        </TableCell>
+
+                        <TableCell>
+                          {log.recording_sid
+                            ? <CallRecordingPlayer recordingSid={log.recording_sid} />
+                            : <span className="text-muted-foreground text-sm">—</span>
+                          }
                         </TableCell>
                       </TableRow>
                     )

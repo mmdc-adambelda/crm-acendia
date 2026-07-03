@@ -198,7 +198,8 @@ export function LeadsClient({
   const [isMuted, setIsMuted] = React.useState(false)
   const [dtmfInput, setDtmfInput] = React.useState('')
   const [dtmfOpen, setDtmfOpen] = React.useState(false)
-  const [logCallFor, setLogCallFor] = React.useState<{ leadId: string; leadName: string; durationSeconds: number } | null>(null)
+  const [twilioCallSid, setTwilioCallSid] = React.useState<string | null>(null)
+  const [logCallFor, setLogCallFor] = React.useState<{ leadId: string; leadName: string; durationSeconds: number; twilioCallSid?: string | null } | null>(null)
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const deviceRef = React.useRef<any>(null)
@@ -350,6 +351,8 @@ export function LeadsClient({
       })
       callRef.current = call
       call.on('accept', () => {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        setTwilioCallSid((call as any).parameters?.CallSid ?? null)
         setDialerStatus('in-call')
         timerRef.current = setInterval(() => setCallSeconds(s => s + 1), 1000)
       })
@@ -368,9 +371,10 @@ export function LeadsClient({
   function endCall() {
     const seconds = callSeconds
     const lead = activeLead
+    const sid = twilioCallSid
     cleanupCall()
     setDialerStatus('ended')
-    if (lead) setLogCallFor({ leadId: lead.id, leadName: lead.company_name, durationSeconds: seconds })
+    if (lead) setLogCallFor({ leadId: lead.id, leadName: lead.company_name, durationSeconds: seconds, twilioCallSid: sid })
   }
 
   function hangUp() {
@@ -384,6 +388,7 @@ export function LeadsClient({
     setIsMuted(false)
     setDtmfInput('')
     setDtmfOpen(false)
+    setTwilioCallSid(null)
   }
 
   function toggleMute() {
@@ -874,6 +879,7 @@ export function LeadsClient({
         leadName={logCallFor?.leadName ?? undefined}
         userId={userId}
         durationSeconds={logCallFor?.durationSeconds ?? 0}
+        twilioCallSid={logCallFor?.twilioCallSid}
       />
     </>
   )

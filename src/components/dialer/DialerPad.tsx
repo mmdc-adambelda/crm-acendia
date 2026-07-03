@@ -59,6 +59,7 @@ export function DialerPad({ userId, initialCallerIds = [] }: DialerPadProps) {
   const [callerIds, setCallerIds] = React.useState<string[]>(initialCallerIds)
   const [selectedCallerId, setSelectedCallerId] = React.useState(initialCallerIds[0] ?? '')
   const [postCallOpen, setPostCallOpen] = React.useState(false)
+  const [twilioCallSid, setTwilioCallSid] = React.useState<string | null>(null)
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const deviceRef = React.useRef<any>(null)
@@ -164,6 +165,8 @@ export function DialerPad({ userId, initialCallerIds = [] }: DialerPadProps) {
       })
       callRef.current = call
       call.on('accept', () => {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        setTwilioCallSid((call as any).parameters?.CallSid ?? null)
         setStatus('in-call')
         timerRef.current = setInterval(() => setSeconds(s => s + 1), 1000)
       })
@@ -198,6 +201,7 @@ export function DialerPad({ userId, initialCallerIds = [] }: DialerPadProps) {
     if (timerRef.current) { clearInterval(timerRef.current); timerRef.current = null }
     callRef.current = null
     setIsMuted(false)
+    setTwilioCallSid(null)
   }
 
   function toggleMute() {
@@ -417,6 +421,7 @@ export function DialerPad({ userId, initialCallerIds = [] }: DialerPadProps) {
         leadName={selectedLead?.company_name ?? null}
         userId={userId}
         durationSeconds={seconds}
+        twilioCallSid={twilioCallSid}
       />
     </>
   )

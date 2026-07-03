@@ -26,6 +26,7 @@ import { ActivityTimeline } from '@/components/leads/ActivityTimeline'
 import { LeadDetailActions } from '@/components/leads/LeadDetailActions'
 import { LeadQuickActions } from '@/components/leads/LeadQuickActions'
 import { TwilioDialer } from '@/components/leads/TwilioDialer'
+import { CallRecordingPlayer } from '@/components/calls/CallRecordingPlayer'
 import { formatCurrency, formatDate, formatRelativeTime, getInitials } from '@/lib/utils'
 import type { ActivityType, LeadStatus, TaskPriority, CallOutcome } from '@/types'
 
@@ -117,7 +118,7 @@ export default async function LeadDetailPage({
         .order('created_at', { ascending: false })
         .limit(10),
       sb.from('call_logs')
-        .select('id, call_date, call_outcome, duration, notes')
+        .select('id, call_date, call_outcome, duration, notes, recording_sid')
         .eq('lead_id', id)
         .order('call_date', { ascending: false })
         .limit(10),
@@ -156,7 +157,7 @@ export default async function LeadDetailPage({
     creator: { full_name: string | null; avatar_url: string | null } | null
   }[]
   type TaskRow = { id: string; title: string; status: string; priority: string; due_date: string | null }
-  type CallRow = { id: string; call_date: string; call_outcome: string; duration: number | null; notes: string | null }
+  type CallRow = { id: string; call_date: string; call_outcome: string; duration: number | null; notes: string | null; recording_sid: string | null }
   const tasks = (((tasksResult as { data: unknown[] | null }).data) as TaskRow[] | null) ?? []
   const calls = (((callsResult as { data: unknown[] | null }).data) as CallRow[] | null) ?? []
   const teamMembers = (profilesResult as { data: { id: string; full_name: string | null; avatar_url: string | null }[] | null }).data ?? []
@@ -337,6 +338,11 @@ export default async function LeadDetailPage({
                           <p className="text-xs text-muted-foreground mt-1 whitespace-pre-wrap break-words">
                             {call.notes}
                           </p>
+                        )}
+                        {call.recording_sid && (
+                          <div className="mt-2">
+                            <CallRecordingPlayer recordingSid={call.recording_sid} />
+                          </div>
                         )}
                       </div>
                     </div>

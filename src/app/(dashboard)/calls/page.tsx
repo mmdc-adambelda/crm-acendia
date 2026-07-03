@@ -1,7 +1,7 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/server'
-import { notFound } from 'next/navigation'
+import { notFound, redirect } from 'next/navigation'
 import {
   Phone,
   PhoneOff,
@@ -48,6 +48,11 @@ export default async function CallsPage({
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) notFound()
+
+  // Only admins, BDMs, and managers can view the full call log
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: profile } = await (supabase.from('profiles') as any).select('role').eq('id', user.id).single()
+  if ((profile as { role?: string } | null)?.role === 'sales_rep') redirect('/leads')
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const sb = supabase as any

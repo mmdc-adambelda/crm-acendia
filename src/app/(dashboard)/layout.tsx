@@ -12,8 +12,8 @@ export default async function DashboardLayout({ children }: { children: React.Re
 
   if (!user) redirect('/login')
 
-  const { data: profile } = await supabase
-    .from('profiles')
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: profile } = await (supabase.from('profiles') as any)
     .select('*')
     .eq('id', user.id)
     .single()
@@ -25,7 +25,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
 
   return (
     <div className="flex h-screen overflow-hidden bg-background">
-      <Sidebar />
+      <Sidebar userRole={profile?.role ?? null} />
       <div className="flex flex-col flex-1 overflow-hidden">
         <TopNav user={user} profile={profile} />
         <main className="flex-1 overflow-y-auto scrollbar-thin">

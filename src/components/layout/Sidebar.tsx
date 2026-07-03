@@ -16,21 +16,29 @@ import { cn } from '@/lib/utils'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 
-const navItems = [
-  { label: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
-  { label: 'Leads',     href: '/leads',     icon: Users },
-  { label: 'Pipeline',  href: '/pipeline',  icon: KanbanSquare },
-  { label: 'Tasks',     href: '/tasks',     icon: CheckSquare },
-  { label: 'Calls',     href: '/calls',     icon: Phone },
-  { label: 'Clients',   href: '/clients',   icon: Building2 },
+const allNavItems = [
+  { label: 'Dashboard', href: '/dashboard', icon: LayoutDashboard, roles: null },
+  { label: 'Leads',     href: '/leads',     icon: Users,           roles: null },
+  { label: 'Pipeline',  href: '/pipeline',  icon: KanbanSquare,    roles: null },
+  { label: 'Tasks',     href: '/tasks',     icon: CheckSquare,     roles: null },
+  { label: 'Calls',     href: '/calls',     icon: Phone,           roles: ['super_admin', 'admin', 'bdm', 'operations_manager', 'client_success_manager'] },
+  { label: 'Clients',   href: '/clients',   icon: Building2,       roles: null },
 ]
 
 const bottomItems = [
   { label: 'Settings', href: '/settings', icon: Settings },
 ]
 
-export function Sidebar() {
+interface SidebarProps {
+  userRole?: string | null
+}
+
+export function Sidebar({ userRole }: SidebarProps) {
   const pathname = usePathname()
+
+  const navItems = allNavItems.filter(item =>
+    item.roles === null || (userRole && item.roles.includes(userRole))
+  )
 
   const isActive = (href: string) => {
     if (href === '/dashboard') return pathname === '/dashboard'

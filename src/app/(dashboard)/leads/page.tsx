@@ -98,6 +98,11 @@ export default async function LeadsPage({ searchParams }: { searchParams: Search
   const teamMembers = profilesResult.data ?? []
   const userId = userResult.data.user?.id ?? ''
 
+  const callerIds = [
+    process.env.TWILIO_PHONE_1,
+    process.env.TWILIO_PHONE_2,
+  ].filter(Boolean) as string[]
+
   return (
     <div className="space-y-5">
       <LeadsClient
@@ -109,6 +114,7 @@ export default async function LeadsPage({ searchParams }: { searchParams: Search
         order={order}
         teamMembers={teamMembers}
         userId={userId}
+        initialCallerIds={callerIds}
         autoOpenCreate={autoOpenCreate}
       />
     </div>

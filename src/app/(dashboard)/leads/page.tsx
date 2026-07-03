@@ -98,6 +98,28 @@ export default async function LeadsPage({ searchParams }: { searchParams: Search
   const teamMembers = profilesResult.data ?? []
   const userId = userResult.data.user?.id ?? ''
 
+  // Fetch most recent call log for each lead on this page
+  const leadIds = leads.map(l => l.id)
+  type LastCall = { lead_id: string; call_outcome: string; call_date: string }
+  let lastCallMap: Record<string, LastCall> = {}
+
+  if (leadIds.length > 0) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: callLogs } = await (supabase as any)
+      .from('call_logs')
+      .select('lead_id, call_outcome, call_date')
+      .in('lead_id', leadIds)
+      .order('call_date', { ascending: false })
+
+    if (callLogs) {
+      for (const log of callLogs as LastCall[]) {
+        if (log.lead_id && !lastCallMap[log.lead_id]) {
+          lastCallMap[log.lead_id] = log
+        }
+      }
+    }
+  }
+
   const callerIds = [
     process.env.TWILIO_PHONE_1,
     process.env.TWILIO_PHONE_2,
@@ -115,6 +137,7 @@ export default async function LeadsPage({ searchParams }: { searchParams: Search
         teamMembers={teamMembers}
         userId={userId}
         initialCallerIds={callerIds}
+        lastCallMap={lastCallMap}
         autoOpenCreate={autoOpenCreate}
       />
     </div>

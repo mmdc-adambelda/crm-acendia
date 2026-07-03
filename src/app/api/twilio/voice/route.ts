@@ -24,7 +24,13 @@ export async function POST(req: NextRequest) {
   const hasCallerId = fromNumber.length > 0
 
   if (isValidPhone && hasCallerId) {
-    const dial = twiml.dial({ callerId: fromNumber, timeout: 30 })
+    const dial = twiml.dial({
+      callerId: fromNumber,
+      timeout: 30,
+      record: 'record-from-answer',
+      recordingStatusCallback: '/api/twilio/recording-status',
+      recordingStatusCallbackMethod: 'POST',
+    })
     dial.number(to)
   } else if (!hasCallerId) {
     // Caller ID missing — env var not configured

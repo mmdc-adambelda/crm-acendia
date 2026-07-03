@@ -102,6 +102,16 @@ const LEAD_STATUSES: LeadStatus[] = [
   'New', 'Contacted', 'Qualified', 'Proposal Sent', 'Negotiation', 'Won', 'Lost',
 ]
 
+type LastCall = { lead_id: string; call_outcome: string; call_date: string }
+
+const OUTCOME_COLORS: Record<string, string> = {
+  'Booked Meeting':  'text-blue-600',
+  'Interested':      'text-emerald-600',
+  'Callback':        'text-amber-600',
+  'Not Interested':  'text-red-500',
+  'No Answer':       'text-slate-500',
+}
+
 const STATUS_COLORS: Record<string, string> = {
   'New':           'text-blue-600',
   'Contacted':     'text-violet-600',
@@ -138,6 +148,7 @@ interface LeadsClientProps {
   teamMembers: TeamMember[]
   userId: string
   initialCallerIds?: string[]
+  lastCallMap?: Record<string, LastCall>
   autoOpenCreate?: boolean
 }
 
@@ -162,6 +173,7 @@ export function LeadsClient({
   teamMembers,
   userId,
   initialCallerIds = [],
+  lastCallMap = {},
   autoOpenCreate = false,
 }: LeadsClientProps) {
   const router = useRouter()
@@ -565,6 +577,9 @@ export function LeadsClient({
                 </span>
               </TableHead>
 
+              {/* Last Call — static */}
+              <TableHead className="whitespace-nowrap">Last Call</TableHead>
+
               {/* Score sortable */}
               <TableHead
                 className="cursor-pointer select-none whitespace-nowrap text-right"
@@ -595,7 +610,7 @@ export function LeadsClient({
           <TableBody>
             {leads.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={8} className="h-64">
+                <TableCell colSpan={9} className="h-64">
                   <EmptyState
                     icon={Users2}
                     title="No leads found"
@@ -676,6 +691,22 @@ export function LeadsClient({
                           ))}
                         </SelectContent>
                       </Select>
+                    </TableCell>
+
+                    {/* Last Call */}
+                    <TableCell className="whitespace-nowrap">
+                      {lastCallMap[lead.id] ? (
+                        <div>
+                          <span className={`text-xs font-medium ${OUTCOME_COLORS[lastCallMap[lead.id].call_outcome] ?? 'text-muted-foreground'}`}>
+                            {lastCallMap[lead.id].call_outcome}
+                          </span>
+                          <p className="text-[11px] text-muted-foreground mt-0.5">
+                            {formatRelativeTime(lastCallMap[lead.id].call_date)}
+                          </p>
+                        </div>
+                      ) : (
+                        <span className="text-muted-foreground text-sm">—</span>
+                      )}
                     </TableCell>
 
                     {/* Score */}

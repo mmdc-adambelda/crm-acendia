@@ -15,6 +15,7 @@ import {
   Calendar,
   Clock,
   Pencil,
+  Send,
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -27,6 +28,7 @@ import { LeadDetailActions } from '@/components/leads/LeadDetailActions'
 import { LeadQuickActions } from '@/components/leads/LeadQuickActions'
 import { TwilioDialer } from '@/components/leads/TwilioDialer'
 import { CallRecordingPlayer } from '@/components/calls/CallRecordingPlayer'
+import { SendEmailButton } from '@/components/leads/SendEmailButton'
 import { formatCurrency, formatDate, formatRelativeTime, getInitials } from '@/lib/utils'
 import type { ActivityType, LeadStatus, TaskPriority, CallOutcome } from '@/types'
 
@@ -105,7 +107,7 @@ export default async function LeadDetailPage({
   if (leadResult.error || !leadResult.data) {
     notFound()
   }
-  const [activitiesResult, tasksResult, callsResult, profilesResult, userResult] =
+  const [activitiesResult, tasksResult, callsResult, profilesResult, userResult, emailsResult] =
     await Promise.all([
       sb.from('activities')
         .select('id, type, description, created_at, creator:profiles!activities_created_by_fkey(full_name, avatar_url)')
@@ -124,6 +126,11 @@ export default async function LeadDetailPage({
         .limit(10),
       supabase.from('profiles').select('id, full_name, avatar_url').eq('is_active', true).order('full_name'),
       supabase.auth.getUser(),
+      sb.from('emails')
+        .select('id, to_email, to_name, subject, body, sent_at, type, sender:profiles!emails_sent_by_fkey(full_name)')
+        .eq('lead_id', id)
+        .order('sent_at', { ascending: false })
+        .limit(20),
     ])
 
   type LeadFull = {
@@ -156,10 +163,12 @@ export default async function LeadDetailPage({
     created_at: string
     creator: { full_name: string | null; avatar_url: string | null } | null
   }[]
-  type TaskRow = { id: string; title: string; status: string; priority: string; due_date: string | null }
-  type CallRow = { id: string; call_date: string; call_outcome: string; duration: number | null; notes: string | null; recording_sid: string | null }
-  const tasks = (((tasksResult as { data: unknown[] | null }).data) as TaskRow[] | null) ?? []
-  const calls = (((callsResult as { data: unknown[] | null }).data) as CallRow[] | null) ?? []
+  type TaskRow  = { id: string; title: string; status: string; priority: string; due_date: string | null }
+  type CallRow  = { id: string; call_date: string; call_outcome: string; duration: number | null; notes: string | null; recording_sid: string | null }
+  type EmailRow = { id: string; to_email: string; to_name: string | null; subject: string; body: string; sent_at: string; type: string; sender: { full_name: string | null } | null }
+  const tasks  = (((tasksResult  as { data: unknown[] | null }).data) as TaskRow[]  | null) ?? []
+  const calls  = (((callsResult  as { data: unknown[] | null }).data) as CallRow[]  | null) ?? []
+  const emails = (((emailsResult as { data: unknown[] | null }).data) as EmailRow[] | null) ?? []
   const teamMembers = (profilesResult as { data: { id: string; full_name: string | null; avatar_url: string | null }[] | null }).data ?? []
   const userId = (userResult as Awaited<ReturnType<typeof supabase.auth.getUser>>).data.user?.id ?? ''
 
@@ -184,6 +193,7 @@ export default async function LeadDetailPage({
             <p className="text-muted-foreground">{lead.contact_person}</p>
           </div>
           <div className="flex items-center gap-2 flex-wrap">
+            <SendEmailButton toEmail={lead.email} toName={lead.contact_person} leadId={lead.id} />
             <LeadQuickActions leadId={lead.id} leadName={lead.company_name} userId={userId} teamMembers={teamMembers} />
             <LeadDetailActions lead={lead} teamMembers={teamMembers} userId={userId} />
           </div>
@@ -351,6 +361,46 @@ export default async function LeadDetailPage({
               </CardContent>
             </Card>
           )}
+
+          {/* Emails */}
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">
+                Emails {emails.length > 0 && `(${emails.length})`}
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="p-0">
+              {emails.length === 0 ? (
+                <div className="px-6 py-6 text-center">
+                  <Send className="h-7 w-7 text-muted-foreground/20 mx-auto mb-2" />
+                  <p className="text-xs text-muted-foreground">No emails sent yet</p>
+                </div>
+              ) : (
+                <div className="divide-y">
+                  {emails.map(email => (
+                    <div key={email.id} className="px-6 py-3">
+                      <div className="flex items-start justify-between gap-2">
+                        <p className="text-sm font-medium truncate flex-1">{email.subject}</p>
+                        <div className="flex items-center gap-1.5 shrink-0">
+                          {email.type === 'reminder' && (
+                            <span className="text-[10px] bg-amber-100 text-amber-700 rounded-full px-2 py-0.5 font-medium">auto</span>
+                          )}
+                          <p className="text-xs text-muted-foreground whitespace-nowrap">{formatDate(email.sent_at)}</p>
+                        </div>
+                      </div>
+                      <p className="text-xs text-muted-foreground mt-0.5">
+                        To: {email.to_name ? `${email.to_name} <${email.to_email}>` : email.to_email}
+                      </p>
+                      <p className="text-xs text-muted-foreground mt-1.5 line-clamp-2 whitespace-pre-wrap">{email.body}</p>
+                      {email.sender?.full_name && (
+                        <p className="text-[10px] text-muted-foreground/70 mt-1">Sent by {email.sender.full_name}</p>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
         </div>
 
         {/* Sidebar */}

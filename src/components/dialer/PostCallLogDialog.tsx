@@ -41,6 +41,7 @@ const schema = z.object({
   }),
   notes: z.string().optional(),
   follow_up_date: z.string().optional(),
+  appointment_at: z.string().optional(),
 })
 
 type FormValues = z.infer<typeof schema>
@@ -73,12 +74,14 @@ export function PostCallLogDialog({
 
   const form = useForm<FormValues>({
     resolver: zodResolver(schema),
-    defaultValues: { call_outcome: undefined, notes: '', follow_up_date: '' },
+    defaultValues: { call_outcome: undefined, notes: '', follow_up_date: '', appointment_at: '' },
   })
+
+  const watchOutcome = form.watch('call_outcome')
 
   // Reset form each time dialog opens for a new call
   React.useEffect(() => {
-    if (open) form.reset({ call_outcome: undefined, notes: '', follow_up_date: '' })
+    if (open) form.reset({ call_outcome: undefined, notes: '', follow_up_date: '', appointment_at: '' })
   }, [open]) // eslint-disable-line react-hooks/exhaustive-deps
 
   async function onSubmit(values: FormValues) {
@@ -94,6 +97,9 @@ export function PostCallLogDialog({
       notes: values.notes?.trim() || null,
       follow_up_date: values.follow_up_date || null,
       twilio_call_sid: twilioCallSid ?? null,
+      appointment_at: values.call_outcome === 'Booked Meeting' && values.appointment_at
+        ? new Date(values.appointment_at).toISOString()
+        : null,
     }
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -200,6 +206,27 @@ export function PostCallLogDialog({
                 </FormItem>
               )}
             />
+
+            {watchOutcome === 'Booked Meeting' && (
+              <FormField
+                control={form.control}
+                name="appointment_at"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>
+                      Appointment Date &amp; Time
+                      <span className="ml-1.5 text-[10px] text-muted-foreground font-normal">
+                        — a 24-hour reminder will be sent to the lead
+                      </span>
+                    </FormLabel>
+                    <FormControl>
+                      <Input type="datetime-local" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            )}
 
             <DialogFooter className="gap-2">
               <Button

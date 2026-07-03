@@ -14,7 +14,10 @@ export async function POST(req: NextRequest) {
   const recordingStatus = body.get('RecordingStatus') as string | null
   const callSid         = body.get('CallSid') as string | null
 
+  console.log('[recording-status] received:', { recordingStatus, recordingSid, callSid, hasUrl: !!recordingUrl })
+
   if (recordingStatus !== 'completed' || !recordingUrl || !callSid) {
+    console.log('[recording-status] skipping — not completed or missing fields')
     return new NextResponse('ok', { status: 200 })
   }
 
@@ -24,9 +27,16 @@ export async function POST(req: NextRequest) {
   )
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  await (supabase.from('call_logs') as any)
+  const { data, error } = await (supabase.from('call_logs') as any)
     .update({ recording_url: `${recordingUrl}.mp3`, recording_sid: recordingSid })
     .eq('twilio_call_sid', callSid)
+    .select('id')
+
+  if (error) {
+    console.error('[recording-status] DB update failed:', error.message)
+  } else {
+    console.log('[recording-status] updated rows:', data)
+  }
 
   return new NextResponse('ok', { status: 200 })
 }

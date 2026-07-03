@@ -88,7 +88,7 @@ export function PostCallLogDialog({
     setIsPending(true)
     const supabase = createClient()
 
-    const payload = {
+    const payload: Record<string, unknown> = {
       lead_id: leadId ?? null,
       made_by: userId,
       call_date: new Date().toISOString(),
@@ -97,9 +97,9 @@ export function PostCallLogDialog({
       notes: values.notes?.trim() || null,
       follow_up_date: values.follow_up_date || null,
       twilio_call_sid: twilioCallSid ?? null,
-      appointment_at: values.call_outcome === 'Booked Meeting' && values.appointment_at
-        ? new Date(values.appointment_at).toISOString()
-        : null,
+    }
+    if (values.call_outcome === 'Booked Meeting' && values.appointment_at) {
+      payload.appointment_at = new Date(values.appointment_at).toISOString()
     }
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any

@@ -107,7 +107,7 @@ export default async function LeadDetailPage({
   if (leadResult.error || !leadResult.data) {
     notFound()
   }
-  const [activitiesResult, tasksResult, callsResult, profilesResult, userResult, emailsResult] =
+  const [activitiesResult, tasksResult, callsResult, profilesResult, userResult] =
     await Promise.all([
       sb.from('activities')
         .select('id, type, description, created_at, creator:profiles!activities_created_by_fkey(full_name, avatar_url)')
@@ -126,12 +126,20 @@ export default async function LeadDetailPage({
         .limit(10),
       supabase.from('profiles').select('id, full_name, avatar_url').eq('is_active', true).order('full_name'),
       supabase.auth.getUser(),
-      sb.from('emails')
-        .select('id, to_email, to_name, subject, body, sent_at, type, sender:profiles!emails_sent_by_fkey(full_name)')
-        .eq('lead_id', id)
-        .order('sent_at', { ascending: false })
-        .limit(20),
     ])
+
+  // Emails — kept separate so a missing migration doesn't crash the whole page
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let emailsResult: { data: unknown[] | null } = { data: null }
+  try {
+    emailsResult = await sb.from('emails')
+      .select('id, to_email, to_name, subject, body, sent_at, type, sender:profiles!emails_sent_by_fkey(full_name)')
+      .eq('lead_id', id)
+      .order('sent_at', { ascending: false })
+      .limit(20)
+  } catch {
+    // emails table may not exist yet (migration 005 pending)
+  }
 
   type LeadFull = {
     id: string

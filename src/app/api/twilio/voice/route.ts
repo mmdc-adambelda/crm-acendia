@@ -24,11 +24,13 @@ export async function POST(req: NextRequest) {
   const hasCallerId = fromNumber.length > 0
 
   if (isValidPhone && hasCallerId) {
+    // Derive absolute URL — Twilio needs a full https:// address for callbacks
+    const appUrl = (process.env.NEXT_PUBLIC_APP_URL ?? new URL(req.url).origin).replace(/\/$/, '')
     const dial = twiml.dial({
       callerId: fromNumber,
       timeout: 30,
       record: 'record-from-answer',
-      recordingStatusCallback: '/api/twilio/recording-status',
+      recordingStatusCallback: `${appUrl}/api/twilio/recording-status`,
       recordingStatusCallbackMethod: 'POST',
     })
     dial.number(to)

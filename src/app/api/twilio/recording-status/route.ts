@@ -1,10 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
+import { createClient } from '@supabase/supabase-js'
 
 export const runtime = 'nodejs'
 
 // Twilio POSTs here when a recording is ready.
-// We use the CallSid to find the matching call_log and attach the recording URL.
+// Uses service role client — Twilio requests have no session cookies so the
+// normal cookie-based client would be unauthenticated and RLS would block it.
 export async function POST(req: NextRequest) {
   const body = await req.formData()
 
@@ -17,7 +18,11 @@ export async function POST(req: NextRequest) {
     return new NextResponse('ok', { status: 200 })
   }
 
-  const supabase = await createClient()
+  const supabase = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!
+  )
+
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   await (supabase.from('call_logs') as any)
     .update({ recording_url: `${recordingUrl}.mp3`, recording_sid: recordingSid })

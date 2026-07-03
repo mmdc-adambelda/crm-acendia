@@ -17,6 +17,7 @@ function fmtTime(s: number) {
 
 export function CallRecordingPlayer({ recordingSid }: CallRecordingPlayerProps) {
   const audioRef = React.useRef<HTMLAudioElement>(null)
+  const pendingPlay = React.useRef(false)
   const [isPlaying, setIsPlaying] = React.useState(false)
   const [currentTime, setCurrentTime] = React.useState(0)
   const [duration, setDuration] = React.useState(0)
@@ -28,12 +29,24 @@ export function CallRecordingPlayer({ recordingSid }: CallRecordingPlayerProps) 
 
   function togglePlay() {
     const audio = audioRef.current
-    if (!audio) return
+    if (!audio) {
+      // First click — mount the audio element, play once it's ready
+      pendingPlay.current = true
+      setLoaded(true)
+      return
+    }
     if (isPlaying) {
       audio.pause()
     } else {
-      setLoaded(true)
       audio.play().catch(() => setError(true))
+    }
+  }
+
+  // Fires when enough data is buffered to start playback
+  function handleCanPlay() {
+    if (pendingPlay.current) {
+      pendingPlay.current = false
+      audioRef.current?.play().catch(() => setError(true))
     }
   }
 
@@ -54,6 +67,7 @@ export function CallRecordingPlayer({ recordingSid }: CallRecordingPlayerProps) 
           ref={audioRef}
           src={src}
           preload="metadata"
+          onCanPlay={handleCanPlay}
           onPlay={() => setIsPlaying(true)}
           onPause={() => setIsPlaying(false)}
           onEnded={() => { setIsPlaying(false); setCurrentTime(0) }}

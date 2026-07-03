@@ -39,10 +39,13 @@ export async function GET(
     return new NextResponse('Recording not found', { status: res.status })
   }
 
-  return new NextResponse(res.body, {
-    headers: {
-      'Content-Type': 'audio/mpeg',
-      'Cache-Control': 'private, max-age=3600',
-    },
-  })
+  const headers: Record<string, string> = {
+    'Content-Type': 'audio/mpeg',
+    'Cache-Control': 'private, max-age=3600',
+    'Accept-Ranges': 'bytes',
+  }
+  const contentLength = res.headers.get('Content-Length')
+  if (contentLength) headers['Content-Length'] = contentLength
+
+  return new NextResponse(res.body, { headers })
 }

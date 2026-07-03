@@ -23,6 +23,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { PostCallLogDialog } from './PostCallLogDialog'
+import { CreateLeadFromCallDialog } from './CreateLeadFromCallDialog'
 
 type CallStatus = 'idle' | 'loading' | 'ready' | 'connecting' | 'in-call' | 'ended'
 
@@ -60,6 +61,8 @@ export function DialerPad({ userId, initialCallerIds = [] }: DialerPadProps) {
   const [selectedCallerId, setSelectedCallerId] = React.useState(initialCallerIds[0] ?? '')
   const [postCallOpen, setPostCallOpen] = React.useState(false)
   const [twilioCallSid, setTwilioCallSid] = React.useState<string | null>(null)
+  const [savedCallLogId, setSavedCallLogId] = React.useState<string | null>(null)
+  const [createLeadOpen, setCreateLeadOpen] = React.useState(false)
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const deviceRef = React.useRef<any>(null)
@@ -422,6 +425,19 @@ export function DialerPad({ userId, initialCallerIds = [] }: DialerPadProps) {
         userId={userId}
         durationSeconds={seconds}
         twilioCallSid={twilioCallSid}
+        onSaved={(callLogId) => {
+          setSavedCallLogId(callLogId)
+          if (!selectedLead) setCreateLeadOpen(true)
+        }}
+      />
+
+      {/* Create lead prompt — shown when call was logged without a linked lead */}
+      <CreateLeadFromCallDialog
+        open={createLeadOpen}
+        onOpenChange={setCreateLeadOpen}
+        phoneNumber={phoneInput || null}
+        callLogId={savedCallLogId}
+        userId={userId}
       />
     </>
   )

@@ -53,7 +53,7 @@ interface PostCallLogDialogProps {
   userId: string
   durationSeconds: number
   twilioCallSid?: string | null
-  onSaved?: () => void
+  onSaved?: (callLogId: string) => void
 }
 
 export function PostCallLogDialog({
@@ -97,7 +97,10 @@ export function PostCallLogDialog({
     }
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { error } = await (supabase.from('call_logs') as any).insert(payload)
+    const { data: savedLog, error } = await (supabase.from('call_logs') as any)
+      .insert(payload)
+      .select('id')
+      .single()
     setIsPending(false)
 
     if (error) {
@@ -108,7 +111,7 @@ export function PostCallLogDialog({
     toast.success('Call logged')
     onOpenChange(false)
     router.refresh()
-    onSaved?.()
+    onSaved?.(savedLog?.id ?? '')
   }
 
   return (

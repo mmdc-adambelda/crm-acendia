@@ -12,7 +12,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { LEAD_STATUSES, LEAD_SOURCES } from '@/types'
+import { LEAD_STATUSES, LEAD_SOURCES, CALL_OUTCOMES } from '@/types'
 
 type TeamMember = {
   id: string
@@ -33,11 +33,12 @@ export function LeadFilters({ teamMembers, total }: LeadFiltersProps) {
   const status = searchParams.get('status') ?? ''
   const source = searchParams.get('source') ?? ''
   const assignedTo = searchParams.get('assigned_to') ?? ''
+  const lastCall = searchParams.get('last_call') ?? ''
 
   const [searchInput, setSearchInput] = React.useState(q)
   const searchTimeout = React.useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
 
-  const hasFilters = q || status || source || assignedTo
+  const hasFilters = q || status || source || assignedTo || lastCall
 
   function buildURL(overrides: Record<string, string>) {
     const params = new URLSearchParams(searchParams.toString())
@@ -127,6 +128,20 @@ export function LeadFilters({ teamMembers, total }: LeadFiltersProps) {
             <SelectItem key={m.id} value={m.id}>
               {m.full_name ?? m.id}
             </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+
+      {/* Last call filter */}
+      <Select value={lastCall || '_all'} onValueChange={(v) => handleFilter('last_call', v === '_all' ? '' : v)}>
+        <SelectTrigger className="w-[160px]">
+          <SelectValue placeholder="Any last call" />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="_all">Any last call</SelectItem>
+          <SelectItem value="none">No calls yet</SelectItem>
+          {CALL_OUTCOMES.map((o) => (
+            <SelectItem key={o} value={o}>{o}</SelectItem>
           ))}
         </SelectContent>
       </Select>

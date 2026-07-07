@@ -16,6 +16,7 @@ import {
   Clock,
   Pencil,
   Send,
+  MessageSquare,
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -29,6 +30,7 @@ import { LeadQuickActions } from '@/components/leads/LeadQuickActions'
 import { TwilioDialer } from '@/components/leads/TwilioDialer'
 import { CallRecordingPlayer } from '@/components/calls/CallRecordingPlayer'
 import { SendEmailButton } from '@/components/leads/SendEmailButton'
+import { SendSmsButton } from '@/components/leads/SendSmsButton'
 import { formatCurrency, formatDate, formatRelativeTime, getInitials } from '@/lib/utils'
 import type { ActivityType, LeadStatus, TaskPriority, CallOutcome } from '@/types'
 
@@ -141,6 +143,19 @@ export default async function LeadDetailPage({
     // emails table may not exist yet (migration 005 pending)
   }
 
+  // SMS messages — kept separate so a missing migration doesn't crash the whole page
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let smsResult: { data: unknown[] | null } = { data: null }
+  try {
+    smsResult = await sb.from('sms_messages')
+      .select('id, to_phone, to_name, body, sent_at, status, type, sender:profiles!sms_messages_sent_by_fkey(full_name)')
+      .eq('lead_id', id)
+      .order('sent_at', { ascending: false })
+      .limit(20)
+  } catch {
+    // sms_messages table may not exist yet (migration 006 pending)
+  }
+
   type LeadFull = {
     id: string
     company_name: string
@@ -174,9 +189,11 @@ export default async function LeadDetailPage({
   type TaskRow  = { id: string; title: string; status: string; priority: string; due_date: string | null }
   type CallRow  = { id: string; call_date: string; call_outcome: string; duration: number | null; notes: string | null; recording_sid: string | null }
   type EmailRow = { id: string; to_email: string; to_name: string | null; subject: string; body: string; sent_at: string; type: string; sender: { full_name: string | null } | null }
+  type SmsRow   = { id: string; to_phone: string; to_name: string | null; body: string; sent_at: string; status: string; type: string; sender: { full_name: string | null } | null }
   const tasks  = (((tasksResult  as { data: unknown[] | null }).data) as TaskRow[]  | null) ?? []
   const calls  = (((callsResult  as { data: unknown[] | null }).data) as CallRow[]  | null) ?? []
   const emails = (((emailsResult as { data: unknown[] | null }).data) as EmailRow[] | null) ?? []
+  const smsMessages = (((smsResult as { data: unknown[] | null }).data) as SmsRow[] | null) ?? []
   const teamMembers = (profilesResult as { data: { id: string; full_name: string | null; avatar_url: string | null }[] | null }).data ?? []
   const userId = (userResult as Awaited<ReturnType<typeof supabase.auth.getUser>>).data.user?.id ?? ''
 
@@ -202,6 +219,9 @@ export default async function LeadDetailPage({
           </div>
           <div className="flex items-center gap-2 flex-wrap">
             <SendEmailButton toEmail={lead.email} toName={lead.contact_person} leadId={lead.id} />
+            {lead.phone && (
+              <SendSmsButton toPhone={lead.phone} toName={lead.contact_person} leadId={lead.id} />
+            )}
             <LeadQuickActions leadId={lead.id} leadName={lead.company_name} userId={userId} teamMembers={teamMembers} />
             <LeadDetailActions lead={lead} teamMembers={teamMembers} userId={userId} />
           </div>
@@ -402,6 +422,48 @@ export default async function LeadDetailPage({
                       <p className="text-xs text-muted-foreground mt-1.5 line-clamp-2 whitespace-pre-wrap">{email.body}</p>
                       {email.sender?.full_name && (
                         <p className="text-[10px] text-muted-foreground/70 mt-1">Sent by {email.sender.full_name}</p>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* SMS Messages */}
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">
+                SMS Messages {smsMessages.length > 0 && `(${smsMessages.length})`}
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="p-0">
+              {smsMessages.length === 0 ? (
+                <div className="px-6 py-6 text-center">
+                  <MessageSquare className="h-7 w-7 text-muted-foreground/20 mx-auto mb-2" />
+                  <p className="text-xs text-muted-foreground">No text messages sent yet</p>
+                </div>
+              ) : (
+                <div className="divide-y">
+                  {smsMessages.map(sms => (
+                    <div key={sms.id} className="px-6 py-3">
+                      <div className="flex items-start justify-between gap-2">
+                        <p className="text-xs text-muted-foreground">
+                          To: {sms.to_name ? `${sms.to_name} <${sms.to_phone}>` : sms.to_phone}
+                        </p>
+                        <div className="flex items-center gap-1.5 shrink-0">
+                          {sms.type === 'reminder' && (
+                            <span className="text-[10px] bg-amber-100 text-amber-700 rounded-full px-2 py-0.5 font-medium">auto</span>
+                          )}
+                          {sms.status === 'failed' && (
+                            <span className="text-[10px] bg-red-100 text-red-700 rounded-full px-2 py-0.5 font-medium">failed</span>
+                          )}
+                          <p className="text-xs text-muted-foreground whitespace-nowrap">{formatDate(sms.sent_at)}</p>
+                        </div>
+                      </div>
+                      <p className="text-xs text-muted-foreground mt-1.5 whitespace-pre-wrap">{sms.body}</p>
+                      {sms.sender?.full_name && (
+                        <p className="text-[10px] text-muted-foreground/70 mt-1">Sent by {sms.sender.full_name}</p>
                       )}
                     </div>
                   ))}

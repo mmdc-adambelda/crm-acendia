@@ -6,6 +6,7 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import {
   Plus,
   Upload,
+  Download,
   Trash2,
   Pencil,
   Eye,
@@ -245,6 +246,15 @@ export function LeadsClient({
     router.push(buildURL({ per_page: v, page: '1' }))
   }
 
+  function exportURL() {
+    const params = new URLSearchParams()
+    ;(['q', 'status', 'source', 'assigned_to', 'last_call'] as const).forEach((key) => {
+      const value = searchParams.get(key)
+      if (value) params.set(key, value)
+    })
+    return `/api/leads/export?${params.toString()}`
+  }
+
   // ── Selection ─────────────────────────────────────────────────────────────
   function toggleSelect(id: string) {
     setSelected((prev) => {
@@ -448,6 +458,12 @@ export function LeadsClient({
           <Button variant="outline" size="sm" onClick={() => setCsvOpen(true)} className="gap-2">
             <Upload className="h-4 w-4" />
             Import CSV
+          </Button>
+          <Button variant="outline" size="sm" className="gap-2" asChild>
+            <a href={exportURL()} download>
+              <Download className="h-4 w-4" />
+              Export CSV
+            </a>
           </Button>
           <Button onClick={openCreate} className="gap-2">
             <Plus className="h-4 w-4" />

@@ -44,6 +44,7 @@ const callSchema = z.object({
   ),
   follow_up_date: z.string().optional().nullable(),
   notes: z.string().max(2000).optional().nullable(),
+  appointment_at: z.string().optional(),
 })
 
 type CallFormValues = z.infer<typeof callSchema>
@@ -70,14 +71,17 @@ export function LogCallDialog({ open, onOpenChange, leadId, leadName, userId }: 
       duration: null,
       follow_up_date: null,
       notes: '',
+      appointment_at: '',
     },
   })
+
+  const watchOutcome = form.watch('call_outcome')
 
   async function onSubmit(values: CallFormValues) {
     setIsPending(true)
     const supabase = createClient()
 
-    const payload = {
+    const payload: Record<string, unknown> = {
       lead_id: leadId,
       call_date: values.call_date,
       call_outcome: values.call_outcome as CallOutcome,
@@ -85,6 +89,9 @@ export function LogCallDialog({ open, onOpenChange, leadId, leadName, userId }: 
       follow_up_date: values.follow_up_date || null,
       notes: values.notes || null,
       made_by: userId,
+    }
+    if (values.call_outcome === 'Booked Meeting' && values.appointment_at) {
+      payload.appointment_at = new Date(values.appointment_at).toISOString()
     }
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -94,7 +101,7 @@ export function LogCallDialog({ open, onOpenChange, leadId, leadName, userId }: 
     if (error) { toast.error(error.message); return }
 
     toast.success('Call logged successfully')
-    form.reset({ call_date: today, call_outcome: 'No Answer', duration: null, follow_up_date: null, notes: '' })
+    form.reset({ call_date: today, call_outcome: 'No Answer', duration: null, follow_up_date: null, notes: '', appointment_at: '' })
     router.refresh()
     onOpenChange(false)
   }
@@ -167,6 +174,28 @@ export function LogCallDialog({ open, onOpenChange, leadId, leadName, userId }: 
                 </FormItem>
               )}
             />
+
+            {/* Appointment date/time — only when a meeting was booked */}
+            {watchOutcome === 'Booked Meeting' && (
+              <FormField
+                control={form.control}
+                name="appointment_at"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>
+                      Appointment Date &amp; Time
+                      <span className="ml-1.5 text-[10px] text-muted-foreground font-normal">
+                        — a 24-hour reminder will be sent to the lead
+                      </span>
+                    </FormLabel>
+                    <FormControl>
+                      <Input type="datetime-local" {...field} disabled={isPending} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            )}
 
             {/* Follow-up date */}
             <FormField

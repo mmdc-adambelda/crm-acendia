@@ -10,6 +10,7 @@ type SearchParams = Promise<{
   status?: string
   source?: string
   assigned_to?: string
+  last_call?: string
   sort?: string
   order?: string
   page?: string
@@ -47,6 +48,7 @@ export default async function LeadsPage({ searchParams }: { searchParams: Search
   const status = params.status ?? ''
   const source = params.source ?? ''
   const assignedTo = params.assigned_to ?? ''
+  const lastCall = params.last_call ?? ''
   const sort = params.sort ?? 'created_at'
   const order = (params.order ?? 'desc') as 'asc' | 'desc'
   const page = Math.max(1, parseInt(params.page ?? '1', 10))
@@ -78,6 +80,21 @@ export default async function LeadsPage({ searchParams }: { searchParams: Search
     query = query.is('assigned_to', null)
   } else if (assignedTo) {
     query = query.eq('assigned_to', assignedTo)
+  }
+
+  if (lastCall === 'none') {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: calledIds } = await (supabase as any).from('lead_last_calls').select('lead_id')
+    const ids = ((calledIds ?? []) as { lead_id: string }[]).map(r => r.lead_id)
+    if (ids.length > 0) query = query.not('id', 'in', `(${ids.join(',')})`)
+  } else if (lastCall) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: matchingIds } = await (supabase as any)
+      .from('lead_last_calls')
+      .select('lead_id')
+      .eq('call_outcome', lastCall)
+    const ids = ((matchingIds ?? []) as { lead_id: string }[]).map(r => r.lead_id)
+    query = query.in('id', ids.length > 0 ? ids : ['00000000-0000-0000-0000-000000000000'])
   }
 
   query = query.order(sort, { ascending: order === 'asc' }).range(from, to)

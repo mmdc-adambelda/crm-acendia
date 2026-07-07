@@ -42,10 +42,24 @@ export async function sendClickSendSms(to: string, body: string): Promise<ClickS
     data?: { messages?: { message_id: string; status: string }[] }
   } | null
 
-  const message = json?.data?.messages?.[0]
-
-  if (!res.ok || !json || json.response_code !== 'SUCCESS' || !message || message.status !== 'SUCCESS') {
+  if (!res.ok || !json || json.response_code !== 'SUCCESS') {
+    console.error('[clicksend] request failed', res.status, JSON.stringify(json))
     return { ok: false, error: json?.response_msg ?? `ClickSend request failed (${res.status})` }
+  }
+
+  const message = json.data?.messages?.[0]
+
+  if (!message) {
+    console.error('[clicksend] no message in response', JSON.stringify(json))
+    return { ok: false, error: json.response_msg ?? 'ClickSend returned no message result' }
+  }
+
+  // ClickSend accepts the HTTP request (response_code: SUCCESS) even when an
+  // individual message is rejected — the per-message `status` field carries
+  // the real reason (e.g. low balance, unverified trial number, bad format).
+  if (message.status !== 'SUCCESS') {
+    console.error('[clicksend] message rejected', JSON.stringify(message))
+    return { ok: false, error: message.status || json.response_msg || 'ClickSend rejected the message' }
   }
 
   return { ok: true, messageId: message.message_id }

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { Resend } from 'resend'
-import { sendClickSendSms } from '@/lib/clicksend'
+import { sendMoceanSms } from '@/lib/mocean'
 
 export const runtime = 'nodejs'
 
@@ -158,7 +158,7 @@ export async function GET(req: NextRequest) {
         })
         const smsBody = `Hi ${greeting}, reminder: your appointment with Acendia International is ${smsFormatted} (NZ time). Reply STOP to opt out.`
 
-        const result = await sendClickSendSms(to, smsBody)
+        const result = await sendMoceanSms(to, smsBody)
 
         if (result.ok) {
           // eslint-disable-next-line @typescript-eslint/no-explicit-any

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
-import { sendClickSendSms } from '@/lib/clicksend'
+import { sendMoceanSms } from '@/lib/mocean'
 
 export const runtime = 'nodejs'
 
@@ -25,7 +25,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Invalid phone number' }, { status: 400 })
   }
 
-  const result = await sendClickSendSms(to, body)
+  const result = await sendMoceanSms(to, body)
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const sb = supabase as any

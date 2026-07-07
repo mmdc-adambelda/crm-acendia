@@ -19,10 +19,37 @@ type Appointment = {
   } | null
 }
 
-// Runs every hour via Vercel Cron — finds appointments in 23–25 hour window
-// and sends a 24-hour reminder to the lead by email and/or SMS.
-// The two channels are tracked with separate flags so a lead missing one
-// contact method (e.g. no phone) doesn't block the other channel.
+const NZ_TIME_ZONE = 'Pacific/Auckland'
+
+// How far `date` (a real UTC instant) sits ahead of UTC when read as NZ wall-clock time.
+function nzOffsetMs(date: Date): number {
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone: NZ_TIME_ZONE,
+    year: 'numeric', month: '2-digit', day: '2-digit',
+    hour: '2-digit', minute: '2-digit', second: '2-digit',
+    hour12: false,
+  }).formatToParts(date)
+  const map: Record<string, string> = {}
+  for (const p of parts) if (p.type !== 'literal') map[p.type] = p.value
+  const hour = Number(map.hour) === 24 ? 0 : Number(map.hour)
+  const asUtc = Date.UTC(Number(map.year), Number(map.month) - 1, Number(map.day), hour, Number(map.minute), Number(map.second))
+  return asUtc - date.getTime()
+}
+
+// [start, end) UTC instants spanning "tomorrow" as a full calendar day in NZ time.
+function nzTomorrowRangeUtc(now: Date): { start: Date; end: Date } {
+  const offset = nzOffsetMs(now)
+  const nzWallNow = new Date(now.getTime() + offset)
+  const tomorrowStartWall = Date.UTC(nzWallNow.getUTCFullYear(), nzWallNow.getUTCMonth(), nzWallNow.getUTCDate() + 1)
+  const dayAfterStartWall = Date.UTC(nzWallNow.getUTCFullYear(), nzWallNow.getUTCMonth(), nzWallNow.getUTCDate() + 2)
+  return { start: new Date(tomorrowStartWall - offset), end: new Date(dayAfterStartWall - offset) }
+}
+
+// Runs once daily via Vercel Cron (Hobby plan caps cron jobs at once/day) —
+// finds every appointment scheduled for "tomorrow" in NZ time and sends a
+// reminder by email and/or SMS. The two channels are tracked with separate
+// flags so a lead missing one contact method (e.g. no phone) doesn't block
+// the other channel.
 export async function GET(req: NextRequest) {
   const authHeader = req.headers.get('authorization')
   if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
@@ -36,15 +63,13 @@ export async function GET(req: NextRequest) {
   const resend = new Resend(process.env.RESEND_API_KEY)
   const fromEmail = process.env.RESEND_FROM_EMAIL ?? 'onboarding@resend.dev'
 
-  const now = new Date()
-  const windowStart = new Date(now.getTime() + 23 * 60 * 60 * 1000)
-  const windowEnd   = new Date(now.getTime() + 25 * 60 * 60 * 1000)
+  const { start, end } = nzTomorrowRangeUtc(new Date())
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: appointments } = await (supabase.from('call_logs') as any)
     .select('id, appointment_at, reminder_sent, sms_reminder_sent, lead:leads(id, company_name, contact_person, email, phone)')
-    .gte('appointment_at', windowStart.toISOString())
-    .lte('appointment_at', windowEnd.toISOString())
+    .gte('appointment_at', start.toISOString())
+    .lt('appointment_at', end.toISOString())
     .or('reminder_sent.eq.false,sms_reminder_sent.eq.false')
     .not('appointment_at', 'is', null)
     .not('lead_id', 'is', null)

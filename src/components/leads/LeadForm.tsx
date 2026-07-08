@@ -8,7 +8,7 @@ import { Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { createClient } from '@/lib/supabase/client'
 import { leadSchema, type LeadFormValues } from '@/lib/validations/leads'
-import { LEAD_STATUSES, LEAD_SOURCES, INDUSTRIES } from '@/types'
+import { LEAD_STATUSES, LEAD_SOURCES } from '@/types'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
@@ -30,6 +30,8 @@ import {
 } from '@/components/ui/select'
 
 type TeamMember = { id: string; full_name: string | null }
+type Industry = { id: string; name: string }
+type FieldDefinition = { id: string; name: string; field_type: string }
 
 type LeadRow = {
   id: string
@@ -53,13 +55,26 @@ interface LeadFormProps {
   lead?: LeadRow | null
   teamMembers: TeamMember[]
   userId: string
+  industries?: Industry[]
+  customFields?: FieldDefinition[]
+  customValues?: Record<string, string>
   onSuccess: () => void
   onCancel: () => void
 }
 
-export function LeadForm({ lead, teamMembers, userId, onSuccess, onCancel }: LeadFormProps) {
+export function LeadForm({
+  lead,
+  teamMembers,
+  userId,
+  industries = [],
+  customFields = [],
+  customValues = {},
+  onSuccess,
+  onCancel,
+}: LeadFormProps) {
   const router = useRouter()
   const [isPending, setIsPending] = React.useState(false)
+  const [customFieldValues, setCustomFieldValues] = React.useState<Record<string, string>>(customValues)
   const isEdit = !!lead
 
   const form = useForm<LeadFormValues>({
@@ -103,6 +118,8 @@ export function LeadForm({ lead, teamMembers, userId, onSuccess, onCancel }: Lea
       assigned_to: values.assigned_to || null,
     }
 
+    let leadId = lead?.id ?? null
+
     if (isEdit) {
       // Cast builder to any — Supabase builder types collapse with complex Database generics
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -117,13 +134,33 @@ export function LeadForm({ lead, teamMembers, userId, onSuccess, onCancel }: Lea
     } else {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const from = supabase.from('leads') as any
-      const { error } = await from.insert({ ...payload, created_by: userId })
+      const { data: created, error } = await from
+        .insert({ ...payload, created_by: userId })
+        .select('id')
+        .single()
       if (error) {
         toast.error(error.message)
         setIsPending(false)
         return
       }
+      leadId = (created as { id: string }).id
       toast.success('Lead created successfully')
+    }
+
+    // Custom field values — isolated from the core lead save so a failure
+    // here doesn't roll back (or block) the lead itself.
+    if (leadId && customFields.length > 0) {
+      const upserts = customFields
+        .filter(f => customFieldValues[f.id]?.trim())
+        .map(f => ({ lead_id: leadId, field_id: f.id, value: customFieldValues[f.id].trim() }))
+      const clears = customFields.filter(f => !customFieldValues[f.id]?.trim()).map(f => f.id)
+
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const valuesTable = supabase.from('lead_custom_field_values') as any
+      await Promise.all([
+        upserts.length ? valuesTable.upsert(upserts, { onConflict: 'lead_id,field_id' }) : null,
+        clears.length ? valuesTable.delete().eq('lead_id', leadId).in('field_id', clears) : null,
+      ])
     }
 
     setIsPending(false)
@@ -277,8 +314,8 @@ export function LeadForm({ lead, teamMembers, userId, onSuccess, onCancel }: Lea
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
-                      {INDUSTRIES.map((i) => (
-                        <SelectItem key={i} value={i}>{i}</SelectItem>
+                      {industries.map((i) => (
+                        <SelectItem key={i.id} value={i.name}>{i.name}</SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
@@ -424,6 +461,23 @@ export function LeadForm({ lead, teamMembers, userId, onSuccess, onCancel }: Lea
               </FormItem>
             )}
           />
+
+          {/* Custom Fields */}
+          {customFields.length > 0 && (
+            <>
+              <Separator />
+              {customFields.map(field => (
+                <div key={field.id} className="space-y-2">
+                  <label className="text-sm font-medium leading-none">{field.name}</label>
+                  <Input
+                    value={customFieldValues[field.id] ?? ''}
+                    onChange={(e) => setCustomFieldValues(prev => ({ ...prev, [field.id]: e.target.value }))}
+                    disabled={isPending}
+                  />
+                </div>
+              ))}
+            </>
+          )}
         </div>
 
         {/* Fixed footer */}

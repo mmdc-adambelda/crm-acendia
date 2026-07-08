@@ -13,7 +13,7 @@ export const metadata: Metadata = {
   },
   description: 'AI-native CRM for Acendia International — manage leads, pipeline, and clients.',
   icons: {
-    icon: '/favicon.ico',
+    icon: '/acendia-logo.svg',
   },
 }
 

@@ -29,14 +29,26 @@ type LeadRow = {
 }
 
 type TeamMember = { id: string; full_name: string | null }
+type Industry = { id: string; name: string }
+type FieldDefinition = { id: string; name: string; field_type: string }
 
 interface LeadDetailActionsProps {
   lead: LeadRow
   teamMembers: TeamMember[]
   userId: string
+  industries?: Industry[]
+  customFields?: FieldDefinition[]
+  customValues?: Record<string, string>
 }
 
-export function LeadDetailActions({ lead, teamMembers, userId }: LeadDetailActionsProps) {
+export function LeadDetailActions({
+  lead,
+  teamMembers,
+  userId,
+  industries = [],
+  customFields = [],
+  customValues = {},
+}: LeadDetailActionsProps) {
   const router = useRouter()
   const [editOpen, setEditOpen] = React.useState(false)
   const [deleteOpen, setDeleteOpen] = React.useState(false)
@@ -84,6 +96,9 @@ export function LeadDetailActions({ lead, teamMembers, userId }: LeadDetailActio
             lead={lead}
             teamMembers={teamMembers}
             userId={userId}
+            industries={industries}
+            customFields={customFields}
+            customValues={customValues}
             onSuccess={() => {
               setEditOpen(false)
               router.refresh()

@@ -156,6 +156,33 @@ export default async function LeadDetailPage({
     // sms_messages table may not exist yet (migration 006 pending)
   }
 
+  // Industries + custom fields — kept separate so a missing migration doesn't crash the whole page
+  type Industry = { id: string; name: string }
+  type FieldDefinition = { id: string; name: string; field_type: string }
+  let industries: Industry[] = []
+  let customFields: FieldDefinition[] = []
+  let customValues: Record<string, string> = {}
+  try {
+    const [industriesResult, fieldsResult] = await Promise.all([
+      sb.from('industries').select('id, name').order('position'),
+      sb.from('lead_custom_field_definitions').select('id, name, field_type').order('position'),
+    ])
+    industries = industriesResult.data ?? []
+    customFields = fieldsResult.data ?? []
+
+    if (customFields.length > 0) {
+      const { data: values } = await sb
+        .from('lead_custom_field_values')
+        .select('field_id, value')
+        .eq('lead_id', id)
+      for (const v of (values ?? []) as { field_id: string; value: string | null }[]) {
+        customValues[v.field_id] = v.value ?? ''
+      }
+    }
+  } catch {
+    // tables may not exist yet (migration 009 pending)
+  }
+
   type LeadFull = {
     id: string
     company_name: string
@@ -223,7 +250,14 @@ export default async function LeadDetailPage({
               <SendSmsButton toPhone={lead.phone} toName={lead.contact_person} leadId={lead.id} />
             )}
             <LeadQuickActions leadId={lead.id} leadName={lead.company_name} userId={userId} teamMembers={teamMembers} />
-            <LeadDetailActions lead={lead} teamMembers={teamMembers} userId={userId} />
+            <LeadDetailActions
+              lead={lead}
+              teamMembers={teamMembers}
+              userId={userId}
+              industries={industries}
+              customFields={customFields}
+              customValues={customValues}
+            />
           </div>
         </div>
       </div>
@@ -301,6 +335,25 @@ export default async function LeadDetailPage({
               </div>
             </CardContent>
           </Card>
+
+          {/* Custom Fields */}
+          {customFields.length > 0 && (
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">
+                  Custom Fields
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                {customFields.map(field => (
+                  <div key={field.id}>
+                    <p className="text-xs text-muted-foreground">{field.name}</p>
+                    <p className="text-sm font-medium mt-0.5">{customValues[field.id] || '—'}</p>
+                  </div>
+                ))}
+              </CardContent>
+            </Card>
+          )}
 
           {/* Notes */}
           {lead.notes && (

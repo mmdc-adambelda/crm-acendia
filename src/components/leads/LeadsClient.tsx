@@ -139,6 +139,9 @@ const SORTABLE_COLS = [
 
 const PER_PAGE_OPTIONS = [20, 50, 100] as const
 
+type Industry = { id: string; name: string }
+type FieldDefinition = { id: string; name: string; field_type: string }
+
 interface LeadsClientProps {
   leads: LeadRow[]
   total: number
@@ -151,6 +154,9 @@ interface LeadsClientProps {
   initialCallerIds?: string[]
   lastCallMap?: Record<string, LastCall>
   autoOpenCreate?: boolean
+  industries?: Industry[]
+  customFields?: FieldDefinition[]
+  customValuesMap?: Record<string, Record<string, string>>
 }
 
 function SortIcon({ col, sort, order }: { col: string; sort: string; order: string }) {
@@ -176,6 +182,9 @@ export function LeadsClient({
   initialCallerIds = [],
   lastCallMap = {},
   autoOpenCreate = false,
+  industries = [],
+  customFields = [],
+  customValuesMap = {},
 }: LeadsClientProps) {
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -847,6 +856,9 @@ export function LeadsClient({
             lead={editingLead}
             teamMembers={teamMembers}
             userId={userId}
+            industries={industries}
+            customFields={customFields}
+            customValues={editingLead ? customValuesMap[editingLead.id] : undefined}
             onSuccess={closeSheet}
             onCancel={closeSheet}
           />

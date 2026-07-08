@@ -115,6 +115,25 @@ export default async function LeadsPage({ searchParams }: { searchParams: Search
   const teamMembers = profilesResult.data ?? []
   const userId = userResult.data.user?.id ?? ''
 
+  // Industries + custom fields — kept separate so a missing migration
+  // (009_lead_fields_settings) doesn't crash the whole page
+  type Industry = { id: string; name: string }
+  type FieldDefinition = { id: string; name: string; field_type: string }
+  let industries: Industry[] = []
+  let customFields: FieldDefinition[] = []
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const sb = supabase as any
+    const [industriesResult, fieldsResult] = await Promise.all([
+      sb.from('industries').select('id, name').order('position'),
+      sb.from('lead_custom_field_definitions').select('id, name, field_type').order('position'),
+    ])
+    industries = industriesResult.data ?? []
+    customFields = fieldsResult.data ?? []
+  } catch {
+    // tables may not exist yet
+  }
+
   // Fetch most recent call log for each lead on this page
   const leadIds = leads.map(l => l.id)
   type LastCall = { lead_id: string; call_outcome: string; call_date: string }
@@ -137,6 +156,25 @@ export default async function LeadsPage({ searchParams }: { searchParams: Search
     }
   }
 
+  // Custom field values for the leads on this page, keyed by lead id
+  let customValuesMap: Record<string, Record<string, string>> = {}
+  if (leadIds.length > 0 && customFields.length > 0) {
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data: values } = await (supabase as any)
+        .from('lead_custom_field_values')
+        .select('lead_id, field_id, value')
+        .in('lead_id', leadIds)
+
+      for (const v of (values ?? []) as { lead_id: string; field_id: string; value: string | null }[]) {
+        if (!customValuesMap[v.lead_id]) customValuesMap[v.lead_id] = {}
+        customValuesMap[v.lead_id][v.field_id] = v.value ?? ''
+      }
+    } catch {
+      // table may not exist yet
+    }
+  }
+
   const callerIds = [
     process.env.TWILIO_PHONE_1,
     process.env.TWILIO_PHONE_2,
@@ -156,6 +194,9 @@ export default async function LeadsPage({ searchParams }: { searchParams: Search
         initialCallerIds={callerIds}
         lastCallMap={lastCallMap}
         autoOpenCreate={autoOpenCreate}
+        industries={industries}
+        customFields={customFields}
+        customValuesMap={customValuesMap}
       />
     </div>
   )

@@ -38,6 +38,7 @@ type CSVRow = Record<string, string>
 const TEMPLATE_HEADERS = [
   'Company Name',
   'Industry',
+  'Country',
   'Contact Person',
   'Phone Number',
   'Email',
@@ -57,6 +58,7 @@ function downloadTemplate() {
   const example = [
     'Acme Corp',
     'Technology',
+    'New Zealand',
     'John Smith',
     '+1 555 0100',
     'john@acme.com',
@@ -195,6 +197,7 @@ export function CSVImport({ open, onOpenChange, userId, teamMembers }: CSVImport
     const records = validRows.map((row) => ({
       company_name: row['Company Name'].trim(),
       industry: row['Industry']?.trim() || null,
+      country: row['Country']?.trim() || null,
       contact_person: row['Contact Person'].trim(),
       phone: row['Phone Number']?.trim() || null,
       email: row['Email'].trim().toLowerCase(),
@@ -252,7 +255,7 @@ export function CSVImport({ open, onOpenChange, userId, teamMembers }: CSVImport
               </Button>
             </div>
             <p className="text-xs text-muted-foreground">
-              Columns: Company Name, Industry, Contact Person, Phone Number, Email, Website, Lead Score, Call Status, Attempts, Outcome, Callback Time, Follow-up Date, Notes / Talking Points, Next Action
+              Columns: Company Name, Industry, Country, Contact Person, Phone Number, Email, Website, Lead Score, Call Status, Attempts, Outcome, Callback Time, Follow-up Date, Notes / Talking Points, Next Action
             </p>
             <p className="text-xs text-muted-foreground">
               Outcome + Call Status automatically map to Lead Status. Attempts, Callback Time, Follow-up Date, and Next Action are saved in Notes.

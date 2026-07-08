@@ -11,6 +11,7 @@ type SearchParams = Promise<{
   source?: string
   assigned_to?: string
   last_call?: string
+  country?: string
   sort?: string
   order?: string
   page?: string
@@ -26,6 +27,7 @@ type LeadWithAssignee = {
   phone: string | null
   website: string | null
   industry: string | null
+  country: string | null
   location: string | null
   notes: string | null
   status: string
@@ -49,6 +51,7 @@ export default async function LeadsPage({ searchParams }: { searchParams: Search
   const source = params.source ?? ''
   const assignedTo = params.assigned_to ?? ''
   const lastCall = params.last_call ?? ''
+  const country = params.country ?? ''
   const sort = params.sort ?? 'created_at'
   const order = (params.order ?? 'desc') as 'asc' | 'desc'
   const page = Math.max(1, parseInt(params.page ?? '1', 10))
@@ -62,7 +65,7 @@ export default async function LeadsPage({ searchParams }: { searchParams: Search
   let query = supabase
     .from('leads')
     .select(
-      `id, company_name, contact_person, email, phone, website, industry,
+      `id, company_name, contact_person, email, phone, website, industry, country,
        location, notes, status, source, deal_value, probability, lead_score,
        assigned_to, created_by, created_at, updated_at,
        assignee:profiles!leads_assigned_to_fkey(id, full_name, avatar_url)`,
@@ -76,6 +79,7 @@ export default async function LeadsPage({ searchParams }: { searchParams: Search
   }
   if (status) query = query.eq('status', status)
   if (source) query = query.eq('source', source)
+  if (country) query = query.eq('country', country)
   if (assignedTo === 'unassigned') {
     query = query.is('assigned_to', null)
   } else if (assignedTo) {
@@ -115,20 +119,23 @@ export default async function LeadsPage({ searchParams }: { searchParams: Search
   const teamMembers = profilesResult.data ?? []
   const userId = userResult.data.user?.id ?? ''
 
-  // Industries + custom fields — kept separate so a missing migration
-  // (009_lead_fields_settings) doesn't crash the whole page
-  type Industry = { id: string; name: string }
+  // Industries/countries + custom fields — kept separate so a missing
+  // migration (009/010) doesn't crash the whole page
+  type ListItem = { id: string; name: string }
   type FieldDefinition = { id: string; name: string; field_type: string }
-  let industries: Industry[] = []
+  let industries: ListItem[] = []
+  let countries: ListItem[] = []
   let customFields: FieldDefinition[] = []
   try {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const sb = supabase as any
-    const [industriesResult, fieldsResult] = await Promise.all([
+    const [industriesResult, countriesResult, fieldsResult] = await Promise.all([
       sb.from('industries').select('id, name').order('position'),
+      sb.from('countries').select('id, name').order('position'),
       sb.from('lead_custom_field_definitions').select('id, name, field_type').order('position'),
     ])
     industries = industriesResult.data ?? []
+    countries = countriesResult.data ?? []
     customFields = fieldsResult.data ?? []
   } catch {
     // tables may not exist yet
@@ -195,6 +202,7 @@ export default async function LeadsPage({ searchParams }: { searchParams: Search
         lastCallMap={lastCallMap}
         autoOpenCreate={autoOpenCreate}
         industries={industries}
+        countries={countries}
         customFields={customFields}
         customValuesMap={customValuesMap}
       />

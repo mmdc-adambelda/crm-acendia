@@ -83,6 +83,7 @@ type LeadRow = {
   phone: string | null
   website: string | null
   industry: string | null
+  country: string | null
   location: string | null
   notes: string | null
   status: string
@@ -155,6 +156,7 @@ interface LeadsClientProps {
   lastCallMap?: Record<string, LastCall>
   autoOpenCreate?: boolean
   industries?: Industry[]
+  countries?: Industry[]
   customFields?: FieldDefinition[]
   customValuesMap?: Record<string, Record<string, string>>
 }
@@ -183,6 +185,7 @@ export function LeadsClient({
   lastCallMap = {},
   autoOpenCreate = false,
   industries = [],
+  countries = [],
   customFields = [],
   customValuesMap = {},
 }: LeadsClientProps) {
@@ -257,7 +260,7 @@ export function LeadsClient({
 
   function exportURL() {
     const params = new URLSearchParams()
-    ;(['q', 'status', 'source', 'assigned_to', 'last_call'] as const).forEach((key) => {
+    ;(['q', 'status', 'source', 'assigned_to', 'last_call', 'country'] as const).forEach((key) => {
       const value = searchParams.get(key)
       if (value) params.set(key, value)
     })
@@ -482,7 +485,7 @@ export function LeadsClient({
       </div>
 
       {/* Filters */}
-      <LeadFilters teamMembers={teamMembers} total={total} />
+      <LeadFilters teamMembers={teamMembers} total={total} countries={countries} />
 
       {/* ── Active Call Banner ─────────────────────────────────────────────── */}
       {activeLead && isCallActive && (
@@ -857,6 +860,7 @@ export function LeadsClient({
             teamMembers={teamMembers}
             userId={userId}
             industries={industries}
+            countries={countries}
             customFields={customFields}
             customValues={editingLead ? customValuesMap[editingLead.id] : undefined}
             onSuccess={closeSheet}

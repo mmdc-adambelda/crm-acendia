@@ -12,6 +12,7 @@ type LeadExportRow = {
   phone: string | null
   website: string | null
   industry: string | null
+  country: string | null
   location: string | null
   status: string
   source: string
@@ -39,6 +40,7 @@ export async function GET(req: NextRequest) {
   const source = params.get('source') ?? ''
   const assignedTo = params.get('assigned_to') ?? ''
   const lastCall = params.get('last_call') ?? ''
+  const country = params.get('country') ?? ''
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const sb = supabase as any
@@ -46,7 +48,7 @@ export async function GET(req: NextRequest) {
   let query = sb
     .from('leads')
     .select(
-      `id, company_name, contact_person, email, phone, website, industry,
+      `id, company_name, contact_person, email, phone, website, industry, country,
        location, status, source, deal_value, probability, lead_score, created_at,
        assignee:profiles!leads_assigned_to_fkey(full_name)`,
     )
@@ -56,6 +58,7 @@ export async function GET(req: NextRequest) {
   }
   if (status) query = query.eq('status', status)
   if (source) query = query.eq('source', source)
+  if (country) query = query.eq('country', country)
   if (assignedTo === 'unassigned') {
     query = query.is('assigned_to', null)
   } else if (assignedTo) {
@@ -101,6 +104,7 @@ export async function GET(req: NextRequest) {
     'Phone': l.phone ?? '',
     'Website': l.website ?? '',
     'Industry': l.industry ?? '',
+    'Country': l.country ?? '',
     'Location': l.location ?? '',
     'Status': l.status,
     'Source': l.source,

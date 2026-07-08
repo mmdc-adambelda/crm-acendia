@@ -18,6 +18,7 @@ type LeadRow = {
   phone: string | null
   website: string | null
   industry: string | null
+  country: string | null
   location: string | null
   notes: string | null
   status: string
@@ -37,6 +38,7 @@ interface LeadDetailActionsProps {
   teamMembers: TeamMember[]
   userId: string
   industries?: Industry[]
+  countries?: Industry[]
   customFields?: FieldDefinition[]
   customValues?: Record<string, string>
 }
@@ -46,6 +48,7 @@ export function LeadDetailActions({
   teamMembers,
   userId,
   industries = [],
+  countries = [],
   customFields = [],
   customValues = {},
 }: LeadDetailActionsProps) {
@@ -97,6 +100,7 @@ export function LeadDetailActions({
             teamMembers={teamMembers}
             userId={userId}
             industries={industries}
+            countries={countries}
             customFields={customFields}
             customValues={customValues}
             onSuccess={() => {

@@ -17,79 +17,38 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { ConfirmDialog } from '@/components/shared/ConfirmDialog'
+import { SimpleListEditor } from './SimpleListEditor'
 
-type Industry = { id: string; name: string; position: number }
+type ListItem = { id: string; name: string; position: number }
 type FieldDefinition = { id: string; name: string; field_type: string; position: number }
 
 interface LeadFieldsManagerProps {
-  industries: Industry[]
+  industries: ListItem[]
+  countries: ListItem[]
   customFields: FieldDefinition[]
 }
 
-export function LeadFieldsManager({ industries, customFields }: LeadFieldsManagerProps) {
+export function LeadFieldsManager({ industries, countries, customFields }: LeadFieldsManagerProps) {
   const router = useRouter()
-
-  const [newIndustry, setNewIndustry] = React.useState('')
-  const [addingIndustry, setAddingIndustry] = React.useState(false)
-  const [deleteIndustry, setDeleteIndustry] = React.useState<Industry | null>(null)
 
   const [newFieldName, setNewFieldName] = React.useState('')
   const [addingField, setAddingField] = React.useState(false)
   const [deleteField, setDeleteField] = React.useState<FieldDefinition | null>(null)
-
   const [busyId, setBusyId] = React.useState<string | null>(null)
   const [isDeleting, setIsDeleting] = React.useState(false)
 
-  async function swapPositions(table: string, a: { id: string; position: number }, b: { id: string; position: number }) {
+  function moveField(index: number, direction: -1 | 1) {
+    const a = customFields[index]
+    const b = customFields[index + direction]
+    if (!a || !b) return
     setBusyId(a.id)
     const supabase = createClient()
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const from = supabase.from(table) as any
-    await Promise.all([
+    const from = supabase.from('lead_custom_field_definitions') as any
+    Promise.all([
       from.update({ position: b.position }).eq('id', a.id),
       from.update({ position: a.position }).eq('id', b.id),
-    ])
-    setBusyId(null)
-    router.refresh()
-  }
-
-  function moveIndustry(index: number, direction: -1 | 1) {
-    const other = industries[index + direction]
-    if (!other) return
-    swapPositions('industries', industries[index], other)
-  }
-
-  function moveField(index: number, direction: -1 | 1) {
-    const other = customFields[index + direction]
-    if (!other) return
-    swapPositions('lead_custom_field_definitions', customFields[index], other)
-  }
-
-  async function handleAddIndustry() {
-    const name = newIndustry.trim()
-    if (!name) return
-    setAddingIndustry(true)
-    const supabase = createClient()
-    const position = industries.length ? Math.max(...industries.map(i => i.position)) + 1 : 0
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { error } = await (supabase.from('industries') as any).insert({ name, position })
-    setAddingIndustry(false)
-    if (error) { toast.error(error.message); return }
-    toast.success(`Added "${name}"`)
-    setNewIndustry('')
-    router.refresh()
-  }
-
-  async function handleDeleteIndustry() {
-    if (!deleteIndustry) return
-    setIsDeleting(true)
-    const supabase = createClient()
-    const { error } = await supabase.from('industries').delete().eq('id', deleteIndustry.id)
-    setIsDeleting(false)
-    if (error) { toast.error(error.message); return }
-    toast.success(`Removed "${deleteIndustry.name}"`)
-    setDeleteIndustry(null)
-    router.refresh()
+    ]).then(() => { setBusyId(null); router.refresh() })
   }
 
   async function handleAddField() {
@@ -122,58 +81,23 @@ export function LeadFieldsManager({ industries, customFields }: LeadFieldsManage
 
   return (
     <div className="space-y-5">
-      {/* Industries */}
-      <Card>
-        <CardHeader className="pb-3">
-          <CardTitle className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">
-            Industries
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="rounded-lg border divide-y">
-            {industries.length === 0 && (
-              <p className="px-4 py-6 text-center text-sm text-muted-foreground">No industries yet</p>
-            )}
-            {industries.map((industry, index) => (
-              <div key={industry.id} className="flex items-center gap-2 px-4 py-2.5">
-                <span className="flex-1 text-sm font-medium">{industry.name}</span>
-                <Button
-                  variant="ghost" size="icon" className="h-7 w-7"
-                  disabled={index === 0 || busyId === industry.id}
-                  onClick={() => moveIndustry(index, -1)}
-                >
-                  <ArrowUp className="h-3.5 w-3.5" />
-                </Button>
-                <Button
-                  variant="ghost" size="icon" className="h-7 w-7"
-                  disabled={index === industries.length - 1 || busyId === industry.id}
-                  onClick={() => moveIndustry(index, 1)}
-                >
-                  <ArrowDown className="h-3.5 w-3.5" />
-                </Button>
-                <Button
-                  variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:text-destructive"
-                  onClick={() => setDeleteIndustry(industry)}
-                >
-                  <Trash2 className="h-3.5 w-3.5" />
-                </Button>
-              </div>
-            ))}
-          </div>
-          <div className="flex gap-2">
-            <Input
-              value={newIndustry}
-              onChange={(e) => setNewIndustry(e.target.value)}
-              placeholder="e.g. Renewable Energy"
-              onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleAddIndustry() } }}
-            />
-            <Button onClick={handleAddIndustry} disabled={!newIndustry.trim() || addingIndustry} className="gap-1.5 shrink-0">
-              <Plus className="h-4 w-4" />
-              Add
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
+      <SimpleListEditor
+        table="industries"
+        title="Industries"
+        items={industries}
+        addPlaceholder="e.g. Renewable Energy"
+        emptyText="No industries yet"
+        itemLabel="Industry"
+      />
+
+      <SimpleListEditor
+        table="countries"
+        title="Countries"
+        items={countries}
+        addPlaceholder="e.g. Canada"
+        emptyText="No countries yet"
+        itemLabel="Country"
+      />
 
       {/* Custom Fields */}
       <Card>
@@ -239,17 +163,6 @@ export function LeadFieldsManager({ industries, customFields }: LeadFieldsManage
           </p>
         </CardContent>
       </Card>
-
-      <ConfirmDialog
-        open={!!deleteIndustry}
-        onOpenChange={(v) => { if (!v) setDeleteIndustry(null) }}
-        title="Remove Industry"
-        description={`"${deleteIndustry?.name}" will no longer appear as an option. Leads already using it keep their existing value.`}
-        variant="destructive"
-        confirmLabel="Remove"
-        onConfirm={handleDeleteIndustry}
-        isPending={isDeleting}
-      />
 
       <ConfirmDialog
         open={!!deleteField}

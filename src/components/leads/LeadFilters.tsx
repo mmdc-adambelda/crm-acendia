@@ -20,12 +20,15 @@ type TeamMember = {
   avatar_url: string | null
 }
 
+type Country = { id: string; name: string }
+
 interface LeadFiltersProps {
   teamMembers: TeamMember[]
   total: number
+  countries?: Country[]
 }
 
-export function LeadFilters({ teamMembers, total }: LeadFiltersProps) {
+export function LeadFilters({ teamMembers, total, countries = [] }: LeadFiltersProps) {
   const router = useRouter()
   const searchParams = useSearchParams()
 
@@ -34,11 +37,12 @@ export function LeadFilters({ teamMembers, total }: LeadFiltersProps) {
   const source = searchParams.get('source') ?? ''
   const assignedTo = searchParams.get('assigned_to') ?? ''
   const lastCall = searchParams.get('last_call') ?? ''
+  const country = searchParams.get('country') ?? ''
 
   const [searchInput, setSearchInput] = React.useState(q)
   const searchTimeout = React.useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
 
-  const hasFilters = q || status || source || assignedTo || lastCall
+  const hasFilters = q || status || source || assignedTo || lastCall || country
 
   function buildURL(overrides: Record<string, string>) {
     const params = new URLSearchParams(searchParams.toString())
@@ -89,6 +93,21 @@ export function LeadFilters({ teamMembers, total }: LeadFiltersProps) {
           </button>
         )}
       </div>
+
+      {/* Country filter — switches the view between markets (NZ/UK/AU/...) */}
+      {countries.length > 0 && (
+        <Select value={country || '_all'} onValueChange={(v) => handleFilter('country', v === '_all' ? '' : v)}>
+          <SelectTrigger className="w-[160px]">
+            <SelectValue placeholder="All countries" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="_all">All countries</SelectItem>
+            {countries.map((c) => (
+              <SelectItem key={c.id} value={c.name}>{c.name}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      )}
 
       {/* Status filter */}
       <Select value={status || '_all'} onValueChange={(v) => handleFilter('status', v === '_all' ? '' : v)}>

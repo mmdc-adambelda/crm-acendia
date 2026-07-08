@@ -31,6 +31,7 @@ import {
 
 type TeamMember = { id: string; full_name: string | null }
 type Industry = { id: string; name: string }
+type Country = { id: string; name: string }
 type FieldDefinition = { id: string; name: string; field_type: string }
 
 type LeadRow = {
@@ -41,6 +42,7 @@ type LeadRow = {
   phone: string | null
   website: string | null
   industry: string | null
+  country: string | null
   location: string | null
   notes: string | null
   status: string
@@ -56,6 +58,7 @@ interface LeadFormProps {
   teamMembers: TeamMember[]
   userId: string
   industries?: Industry[]
+  countries?: Country[]
   customFields?: FieldDefinition[]
   customValues?: Record<string, string>
   onSuccess: () => void
@@ -67,6 +70,7 @@ export function LeadForm({
   teamMembers,
   userId,
   industries = [],
+  countries = [],
   customFields = [],
   customValues = {},
   onSuccess,
@@ -86,6 +90,7 @@ export function LeadForm({
       phone: lead?.phone ?? '',
       website: lead?.website ?? '',
       industry: lead?.industry ?? '',
+      country: lead?.country ?? '',
       location: lead?.location ?? '',
       status: (lead?.status as LeadFormValues['status']) ?? 'New',
       source: (lead?.source as LeadFormValues['source']) ?? 'Website',
@@ -108,6 +113,7 @@ export function LeadForm({
       phone: values.phone || null,
       website: values.website || null,
       industry: values.industry || null,
+      country: values.country || null,
       location: values.location || null,
       notes: values.notes || null,
       status: values.status,
@@ -295,7 +301,7 @@ export function LeadForm({
             />
           </div>
 
-          {/* Industry + Location */}
+          {/* Industry + Country */}
           <div className="grid grid-cols-2 gap-3">
             <FormField
               control={form.control}
@@ -325,18 +331,46 @@ export function LeadForm({
             />
             <FormField
               control={form.control}
-              name="location"
+              name="country"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Location</FormLabel>
-                  <FormControl>
-                    <Input {...field} value={field.value ?? ''} placeholder="City, Country" disabled={isPending} />
-                  </FormControl>
+                  <FormLabel>Country</FormLabel>
+                  <Select
+                    onValueChange={field.onChange}
+                    value={field.value ?? ''}
+                    disabled={isPending}
+                  >
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select country" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      {countries.map((c) => (
+                        <SelectItem key={c.id} value={c.name}>{c.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                   <FormMessage />
                 </FormItem>
               )}
             />
           </div>
+
+          {/* Location */}
+          <FormField
+            control={form.control}
+            name="location"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Location</FormLabel>
+                <FormControl>
+                  <Input {...field} value={field.value ?? ''} placeholder="City" disabled={isPending} />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
 
           <Separator />
 

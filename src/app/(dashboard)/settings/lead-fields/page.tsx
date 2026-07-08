@@ -15,9 +15,10 @@ export default async function LeadFieldsSettingsPage() {
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const sb = supabase as any
-  const [profileResult, industriesResult, fieldsResult] = await Promise.all([
+  const [profileResult, industriesResult, countriesResult, fieldsResult] = await Promise.all([
     sb.from('profiles').select('role').eq('id', user.id).single(),
     sb.from('industries').select('id, name, position').order('position'),
+    sb.from('countries').select('id, name, position').order('position'),
     sb.from('lead_custom_field_definitions').select('id, name, field_type, position').order('position'),
   ])
 
@@ -26,10 +27,11 @@ export default async function LeadFieldsSettingsPage() {
     notFound()
   }
 
-  type Industry = { id: string; name: string; position: number }
+  type ListItem = { id: string; name: string; position: number }
   type FieldDefinition = { id: string; name: string; field_type: string; position: number }
 
-  const industries = ((industriesResult as { data: unknown[] | null }).data ?? []) as Industry[]
+  const industries = ((industriesResult as { data: unknown[] | null }).data ?? []) as ListItem[]
+  const countries = ((countriesResult as { data: unknown[] | null }).data ?? []) as ListItem[]
   const customFields = ((fieldsResult as { data: unknown[] | null }).data ?? []) as FieldDefinition[]
 
   return (
@@ -37,10 +39,10 @@ export default async function LeadFieldsSettingsPage() {
       <div>
         <h1 className="text-2xl font-bold">Lead Fields</h1>
         <p className="text-muted-foreground text-sm mt-0.5">
-          Manage industry options and custom fields shown on leads
+          Manage industry/country options and custom fields shown on leads
         </p>
       </div>
-      <LeadFieldsManager industries={industries} customFields={customFields} />
+      <LeadFieldsManager industries={industries} countries={countries} customFields={customFields} />
     </div>
   )
 }

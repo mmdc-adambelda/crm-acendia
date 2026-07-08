@@ -8,6 +8,7 @@ export const leadSchema = z.object({
   phone: z.string().max(50).optional().nullable(),
   website: z.string().max(500).optional().nullable(),
   industry: z.string().optional().nullable(),
+  country: z.string().optional().nullable(),
   location: z.string().max(255).optional().nullable(),
   status: z.enum(LEAD_STATUSES as [string, ...string[]]),
   source: z.enum(LEAD_SOURCES as [string, ...string[]]),

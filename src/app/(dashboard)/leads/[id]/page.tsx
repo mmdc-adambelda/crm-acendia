@@ -7,6 +7,7 @@ import {
   Phone,
   Globe,
   Building2,
+  Flag,
   MapPin,
   User,
   DollarSign,
@@ -156,18 +157,21 @@ export default async function LeadDetailPage({
     // sms_messages table may not exist yet (migration 006 pending)
   }
 
-  // Industries + custom fields — kept separate so a missing migration doesn't crash the whole page
-  type Industry = { id: string; name: string }
+  // Industries/countries + custom fields — kept separate so a missing migration doesn't crash the whole page
+  type ListItem = { id: string; name: string }
   type FieldDefinition = { id: string; name: string; field_type: string }
-  let industries: Industry[] = []
+  let industries: ListItem[] = []
+  let countries: ListItem[] = []
   let customFields: FieldDefinition[] = []
   let customValues: Record<string, string> = {}
   try {
-    const [industriesResult, fieldsResult] = await Promise.all([
+    const [industriesResult, countriesResult, fieldsResult] = await Promise.all([
       sb.from('industries').select('id, name').order('position'),
+      sb.from('countries').select('id, name').order('position'),
       sb.from('lead_custom_field_definitions').select('id, name, field_type').order('position'),
     ])
     industries = industriesResult.data ?? []
+    countries = countriesResult.data ?? []
     customFields = fieldsResult.data ?? []
 
     if (customFields.length > 0) {
@@ -191,6 +195,7 @@ export default async function LeadDetailPage({
     phone: string | null
     website: string | null
     industry: string | null
+    country: string | null
     location: string | null
     notes: string | null
     status: string
@@ -255,6 +260,7 @@ export default async function LeadDetailPage({
               teamMembers={teamMembers}
               userId={userId}
               industries={industries}
+              countries={countries}
               customFields={customFields}
               customValues={customValues}
             />
@@ -299,6 +305,7 @@ export default async function LeadDetailPage({
               )}
               <InfoRow icon={Globe} label="Website" value={lead.website} href={lead.website ?? undefined} />
               <InfoRow icon={Building2} label="Industry" value={lead.industry} />
+              <InfoRow icon={Flag} label="Country" value={lead.country} />
               <InfoRow icon={MapPin} label="Location" value={lead.location} />
             </CardContent>
           </Card>

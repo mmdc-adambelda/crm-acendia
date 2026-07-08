@@ -11,6 +11,7 @@ import {
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
 import { formatCurrency } from '@/lib/utils'
+import { nzDayRangeUtc } from '@/lib/timezone'
 import { KPICard } from '@/components/dashboard/KPICard'
 import { PipelineChart } from '@/components/dashboard/PipelineChart'
 import { LeadsBySourceChart } from '@/components/dashboard/LeadsBySourceChart'
@@ -35,14 +36,10 @@ const LEAD_STAGES = [
 export default async function DashboardPage() {
   const supabase = await createClient()
 
-  // Today's UTC date range
-  const now = new Date()
-  const startOfDay = new Date(
-    Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()),
-  ).toISOString()
-  const endOfDay = new Date(
-    Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + 1),
-  ).toISOString()
+  // Today's date range, in NZ time
+  const { start: startOfDayDate, end: endOfDayDate } = nzDayRangeUtc(0)
+  const startOfDay = startOfDayDate.toISOString()
+  const endOfDay = endOfDayDate.toISOString()
 
   const sixMonthsAgo = new Date()
   sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6)

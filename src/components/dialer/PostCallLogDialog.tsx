@@ -8,6 +8,7 @@ import { z } from 'zod'
 import { Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { createClient } from '@/lib/supabase/client'
+import { formatNzDate } from '@/lib/timezone'
 import { CALL_OUTCOMES } from '@/types'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -144,7 +145,7 @@ export function PostCallLogDialog({
             <div className="grid grid-cols-2 gap-3 rounded-lg bg-muted/50 px-4 py-3">
               <div>
                 <p className="text-xs text-muted-foreground">Date</p>
-                <p className="text-sm font-medium">{new Date().toLocaleDateString()}</p>
+                <p className="text-sm font-medium">{formatNzDate(new Date())}</p>
               </div>
               <div>
                 <p className="text-xs text-muted-foreground">Duration</p>

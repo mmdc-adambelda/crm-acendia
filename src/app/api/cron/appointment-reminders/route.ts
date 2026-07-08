@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { Resend } from 'resend'
 import { sendMoceanSms } from '@/lib/mocean'
+import { nzDayRangeUtc } from '@/lib/timezone'
 
 export const runtime = 'nodejs'
 
@@ -17,32 +18,6 @@ type Appointment = {
     email: string
     phone: string | null
   } | null
-}
-
-const NZ_TIME_ZONE = 'Pacific/Auckland'
-
-// How far `date` (a real UTC instant) sits ahead of UTC when read as NZ wall-clock time.
-function nzOffsetMs(date: Date): number {
-  const parts = new Intl.DateTimeFormat('en-US', {
-    timeZone: NZ_TIME_ZONE,
-    year: 'numeric', month: '2-digit', day: '2-digit',
-    hour: '2-digit', minute: '2-digit', second: '2-digit',
-    hour12: false,
-  }).formatToParts(date)
-  const map: Record<string, string> = {}
-  for (const p of parts) if (p.type !== 'literal') map[p.type] = p.value
-  const hour = Number(map.hour) === 24 ? 0 : Number(map.hour)
-  const asUtc = Date.UTC(Number(map.year), Number(map.month) - 1, Number(map.day), hour, Number(map.minute), Number(map.second))
-  return asUtc - date.getTime()
-}
-
-// [start, end) UTC instants spanning "tomorrow" as a full calendar day in NZ time.
-function nzTomorrowRangeUtc(now: Date): { start: Date; end: Date } {
-  const offset = nzOffsetMs(now)
-  const nzWallNow = new Date(now.getTime() + offset)
-  const tomorrowStartWall = Date.UTC(nzWallNow.getUTCFullYear(), nzWallNow.getUTCMonth(), nzWallNow.getUTCDate() + 1)
-  const dayAfterStartWall = Date.UTC(nzWallNow.getUTCFullYear(), nzWallNow.getUTCMonth(), nzWallNow.getUTCDate() + 2)
-  return { start: new Date(tomorrowStartWall - offset), end: new Date(dayAfterStartWall - offset) }
 }
 
 // Runs once daily via Vercel Cron (Hobby plan caps cron jobs at once/day) —
@@ -63,7 +38,7 @@ export async function GET(req: NextRequest) {
   const resend = new Resend(process.env.RESEND_API_KEY)
   const fromEmail = process.env.RESEND_FROM_EMAIL ?? 'onboarding@resend.dev'
 
-  const { start, end } = nzTomorrowRangeUtc(new Date())
+  const { start, end } = nzDayRangeUtc(1)
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: appointments } = await (supabase.from('call_logs') as any)

@@ -8,6 +8,7 @@ import { z } from 'zod'
 import { Loader2, Phone } from 'lucide-react'
 import { toast } from 'sonner'
 import { createClient } from '@/lib/supabase/client'
+import { nzDateKey } from '@/lib/timezone'
 import { CALL_OUTCOMES, type CallOutcome } from '@/types'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -61,7 +62,7 @@ export function LogCallDialog({ open, onOpenChange, leadId, leadName, userId }: 
   const router = useRouter()
   const [isPending, setIsPending] = React.useState(false)
 
-  const today = new Date().toISOString().split('T')[0]
+  const today = nzDateKey(new Date())
 
   const form = useForm<CallFormValues>({
     resolver: zodResolver(callSchema),

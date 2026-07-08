@@ -1,6 +1,7 @@
 import { type ClassValue, clsx } from 'clsx'
 import { twMerge } from 'tailwind-merge'
-import { format, formatDistanceToNow, isToday, isYesterday } from 'date-fns'
+import { formatDistanceToNow } from 'date-fns'
+import { isNzToday, isNzYesterday, formatNzDate, formatNzDateTime } from '@/lib/timezone'
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
@@ -16,18 +17,18 @@ export function formatCurrency(amount: number | null | undefined): string {
   }).format(amount)
 }
 
+// Dates are always shown in NZ (Pacific/Auckland) time regardless of where
+// this renders (Vercel's servers run in UTC) — see src/lib/timezone.ts.
 export function formatDate(date: string | Date | null | undefined): string {
   if (!date) return '—'
-  const d = typeof date === 'string' ? new Date(date) : date
-  if (isToday(d)) return 'Today'
-  if (isYesterday(d)) return 'Yesterday'
-  return format(d, 'MMM d, yyyy')
+  if (isNzToday(date)) return 'Today'
+  if (isNzYesterday(date)) return 'Yesterday'
+  return formatNzDate(date)
 }
 
 export function formatDateTime(date: string | Date | null | undefined): string {
   if (!date) return '—'
-  const d = typeof date === 'string' ? new Date(date) : date
-  return format(d, 'MMM d, yyyy h:mm a')
+  return formatNzDateTime(date)
 }
 
 export function formatRelativeTime(date: string | Date | null | undefined): string {

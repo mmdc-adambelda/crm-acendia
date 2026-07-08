@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button'
 import { PriorityBadge } from '@/components/shared/StatusBadge'
 import { formatDate } from '@/lib/utils'
 import { cn } from '@/lib/utils'
+import { nzDateKey } from '@/lib/timezone'
 import type { TaskPriority } from '@/types'
 
 type DashboardTask = {
@@ -17,23 +18,19 @@ type DashboardTask = {
 
 function dueDateColor(dueDate: string | null): string {
   if (!dueDate) return 'text-muted-foreground'
-  const due = new Date(dueDate)
-  const today = new Date()
-  today.setHours(0, 0, 0, 0)
-  due.setHours(0, 0, 0, 0)
-  if (due < today) return 'text-red-500'
-  if (due.getTime() === today.getTime()) return 'text-orange-500'
+  const dueKey = nzDateKey(dueDate)
+  const todayKey = nzDateKey(new Date())
+  if (dueKey < todayKey) return 'text-red-500'
+  if (dueKey === todayKey) return 'text-orange-500'
   return 'text-muted-foreground'
 }
 
 function dueDateLabel(dueDate: string | null): string {
   if (!dueDate) return ''
-  const due = new Date(dueDate)
-  const today = new Date()
-  today.setHours(0, 0, 0, 0)
-  due.setHours(0, 0, 0, 0)
-  if (due < today) return `Overdue · ${formatDate(dueDate)}`
-  if (due.getTime() === today.getTime()) return 'Due today'
+  const dueKey = nzDateKey(dueDate)
+  const todayKey = nzDateKey(new Date())
+  if (dueKey < todayKey) return `Overdue · ${formatDate(dueDate)}`
+  if (dueKey === todayKey) return 'Due today'
   return formatDate(dueDate)
 }
 

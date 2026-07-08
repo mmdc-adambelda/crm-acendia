@@ -13,8 +13,8 @@ import {
   ClipboardList,
 } from 'lucide-react'
 import { toast } from 'sonner'
-import { format, isToday, isPast, parseISO } from 'date-fns'
 import { createClient } from '@/lib/supabase/client'
+import { nzDateKey, isNzToday, formatNzDate } from '@/lib/timezone'
 import { TASK_STATUSES, TASK_PRIORITIES } from '@/types'
 import { Button } from '@/components/ui/button'
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet'
@@ -57,9 +57,10 @@ interface TasksClientProps {
 
 function dueDateClass(dateStr: string | null, status: string) {
   if (status === 'Done' || !dateStr) return 'text-muted-foreground'
-  const d = parseISO(dateStr)
-  if (isPast(d) && !isToday(d)) return 'text-red-600 dark:text-red-400 font-medium'
-  if (isToday(d)) return 'text-orange-600 dark:text-orange-400 font-medium'
+  const dueKey = nzDateKey(dateStr)
+  const todayKey = nzDateKey(new Date())
+  if (dueKey < todayKey) return 'text-red-600 dark:text-red-400 font-medium'
+  if (dueKey === todayKey) return 'text-orange-600 dark:text-orange-400 font-medium'
   return 'text-muted-foreground'
 }
 
@@ -248,9 +249,9 @@ export function TasksClient({ tasks, leads, teamMembers, userId, total }: TasksC
                   {/* Due date */}
                   <td className={`px-3 py-2.5 hidden lg:table-cell text-xs ${dueDateClass(task.due_date, task.status)}`}>
                     {task.due_date
-                      ? isToday(parseISO(task.due_date))
+                      ? isNzToday(task.due_date)
                         ? 'Today'
-                        : format(parseISO(task.due_date), 'MMM d, yyyy')
+                        : formatNzDate(task.due_date)
                       : <span className="text-muted-foreground/50">—</span>}
                   </td>
 

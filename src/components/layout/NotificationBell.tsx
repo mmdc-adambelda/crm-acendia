@@ -4,8 +4,8 @@ import * as React from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { Bell, AlertTriangle, CalendarClock, Activity as ActivityIcon } from 'lucide-react'
-import { format, isToday, isPast, parseISO } from 'date-fns'
 import { createClient } from '@/lib/supabase/client'
+import { nzDateKey, isNzToday, isNzPast, formatNzShortDate, formatNzShortDateTime } from '@/lib/timezone'
 import { Button } from '@/components/ui/button'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
@@ -41,7 +41,7 @@ export function NotificationBell({ userId }: NotificationBellProps) {
     const supabase = createClient()
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const sb = supabase as any
-    const today = new Date().toISOString().split('T')[0]
+    const today = nzDateKey(new Date())
     const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString()
 
     // Fetch overdue/due-today tasks + leads assigned to me (in parallel)
@@ -68,8 +68,7 @@ export function NotificationBell({ userId }: NotificationBellProps) {
       lead: { company_name: string } | null
     }
     for (const task of (tasksRes.data ?? []) as TaskRow[]) {
-      const d = parseISO(task.due_date)
-      const overdue = isPast(d) && !isToday(d)
+      const overdue = isNzPast(task.due_date)
       items.push({
         id: `task-${task.id}`,
         kind: overdue ? 'overdue' : 'due_today',
@@ -247,10 +246,10 @@ export function NotificationBell({ userId }: NotificationBellProps) {
                       )}
                       <p className="text-[10px] text-muted-foreground/60 mt-0.5">
                         {notif.kind === 'activity'
-                          ? format(parseISO(notif.ts), 'MMM d, h:mm a')
-                          : isToday(parseISO(notif.ts))
+                          ? formatNzShortDateTime(notif.ts)
+                          : isNzToday(notif.ts)
                           ? 'Due today'
-                          : `Due ${format(parseISO(notif.ts), 'MMM d')}`}
+                          : `Due ${formatNzShortDate(notif.ts)}`}
                       </p>
                     </div>
 

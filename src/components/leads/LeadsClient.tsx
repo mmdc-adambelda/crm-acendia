@@ -69,6 +69,7 @@ import { EmptyState } from '@/components/shared/EmptyState'
 import { LeadFilters } from './LeadFilters'
 import { LeadForm } from './LeadForm'
 import { CSVImport } from './CSVImport'
+import { SonetelDialer } from './SonetelDialer'
 import { PostCallLogDialog } from '@/components/dialer/PostCallLogDialog'
 import { formatRelativeTime, getInitials } from '@/lib/utils'
 import type { LeadStatus } from '@/types'
@@ -599,6 +600,9 @@ export function LeadsClient({
               {/* Phone — static */}
               <TableHead className="whitespace-nowrap">Phone</TableHead>
 
+              {/* Country — static */}
+              <TableHead className="whitespace-nowrap">Country</TableHead>
+
               {/* Status sortable */}
               <TableHead
                 className="cursor-pointer select-none whitespace-nowrap"
@@ -643,7 +647,7 @@ export function LeadsClient({
           <TableBody>
             {leads.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={9} className="h-64">
+                <TableCell colSpan={10} className="h-64">
                   <EmptyState
                     icon={Users2}
                     title="No leads found"
@@ -680,29 +684,43 @@ export function LeadsClient({
                     {/* Phone + Call button */}
                     <TableCell className="whitespace-nowrap">
                       {lead.phone ? (
-                        <div className="flex items-center gap-1.5">
-                          <span className="text-sm tabular-nums">{lead.phone}</span>
-                          {isThisCallActive ? (
-                            <span className={`h-2 w-2 rounded-full animate-pulse ${dialerStatus === 'in-call' ? 'bg-foreground' : 'bg-amber-400'}`} />
-                          ) : (
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-6 w-6 shrink-0 hover:bg-muted"
-                              disabled={isCallActive}
-                              onClick={() => startCall(lead)}
-                              title={`Call ${lead.company_name}`}
-                            >
-                              {dialerStatus === 'loading' && activeLead?.id === lead.id
-                                ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                                : <Phone className="h-3.5 w-3.5" />
-                              }
-                            </Button>
-                          )}
-                        </div>
+                        lead.country === 'Australia' ? (
+                          <SonetelDialer
+                            phoneNumber={lead.phone}
+                            leadId={lead.id}
+                            leadName={lead.company_name}
+                            userId={userId}
+                          />
+                        ) : (
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-sm tabular-nums">{lead.phone}</span>
+                            {isThisCallActive ? (
+                              <span className={`h-2 w-2 rounded-full animate-pulse ${dialerStatus === 'in-call' ? 'bg-foreground' : 'bg-amber-400'}`} />
+                            ) : (
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-6 w-6 shrink-0 hover:bg-muted"
+                                disabled={isCallActive}
+                                onClick={() => startCall(lead)}
+                                title={`Call ${lead.company_name}`}
+                              >
+                                {dialerStatus === 'loading' && activeLead?.id === lead.id
+                                  ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                  : <Phone className="h-3.5 w-3.5" />
+                                }
+                              </Button>
+                            )}
+                          </div>
+                        )
                       ) : (
                         <span className="text-muted-foreground text-sm">—</span>
                       )}
+                    </TableCell>
+
+                    {/* Country */}
+                    <TableCell className="whitespace-nowrap text-sm text-muted-foreground">
+                      {lead.country ?? '—'}
                     </TableCell>
 
                     {/* Status — inline Select */}

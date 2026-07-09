@@ -29,6 +29,7 @@ import { ActivityTimeline } from '@/components/leads/ActivityTimeline'
 import { LeadDetailActions } from '@/components/leads/LeadDetailActions'
 import { LeadQuickActions } from '@/components/leads/LeadQuickActions'
 import { TwilioDialer } from '@/components/leads/TwilioDialer'
+import { SonetelDialer } from '@/components/leads/SonetelDialer'
 import { CallRecordingPlayer } from '@/components/calls/CallRecordingPlayer'
 import { SendEmailButton } from '@/components/leads/SendEmailButton'
 import { SendSmsButton } from '@/components/leads/SendSmsButton'
@@ -280,7 +281,7 @@ export default async function LeadDetailPage({
             </CardHeader>
             <CardContent className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <InfoRow icon={Mail} label="Email" value={lead.email} href={`mailto:${lead.email}`} />
-              {/* Phone — uses TwilioDialer for click-to-call when number is present */}
+              {/* Phone — Sonetel for AU leads (callback), Twilio click-to-call otherwise */}
               {lead.phone ? (
                 <div className="flex items-start gap-3">
                   <div className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-muted">
@@ -288,16 +289,25 @@ export default async function LeadDetailPage({
                   </div>
                   <div className="min-w-0">
                     <p className="text-xs text-muted-foreground">Phone</p>
-                    <TwilioDialer
-                      phoneNumber={lead.phone}
-                      leadId={lead.id}
-                      leadName={lead.company_name}
-                      userId={userId}
-                      initialCallerIds={[
-                        process.env.TWILIO_PHONE_1,
-                        process.env.TWILIO_PHONE_2,
-                      ].filter(Boolean) as string[]}
-                    />
+                    {lead.country === 'Australia' ? (
+                      <SonetelDialer
+                        phoneNumber={lead.phone}
+                        leadId={lead.id}
+                        leadName={lead.company_name}
+                        userId={userId}
+                      />
+                    ) : (
+                      <TwilioDialer
+                        phoneNumber={lead.phone}
+                        leadId={lead.id}
+                        leadName={lead.company_name}
+                        userId={userId}
+                        initialCallerIds={[
+                          process.env.TWILIO_PHONE_1,
+                          process.env.TWILIO_PHONE_2,
+                        ].filter(Boolean) as string[]}
+                      />
+                    )}
                   </div>
                 </div>
               ) : (

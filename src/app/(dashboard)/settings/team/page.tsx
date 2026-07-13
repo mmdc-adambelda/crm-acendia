@@ -18,7 +18,7 @@ export default async function TeamSettingsPage() {
   const [profileResult, membersResult] = await Promise.all([
     sb.from('profiles').select('role').eq('id', user.id).single(),
     sb.from('profiles')
-      .select('id, email, full_name, role, department, phone, is_active, created_at')
+      .select('id, email, full_name, role, department, phone, is_active, created_at, inbound_call_number')
       .order('created_at'),
   ])
 
@@ -28,8 +28,13 @@ export default async function TeamSettingsPage() {
     notFound()
   }
 
-  type MemberRow = { id: string; email: string; full_name: string | null; role: string; department: string | null; phone: string | null; is_active: boolean; created_at: string }
+  type MemberRow = { id: string; email: string; full_name: string | null; role: string; department: string | null; phone: string | null; is_active: boolean; created_at: string; inbound_call_number: string | null }
   const members = ((membersResult as { data: unknown[] | null }).data ?? []) as MemberRow[]
+
+  const availableNumbers = [
+    process.env.TWILIO_PHONE_1,
+    process.env.TWILIO_PHONE_2,
+  ].filter(Boolean) as string[]
 
   return (
     <div className="space-y-6">
@@ -39,7 +44,7 @@ export default async function TeamSettingsPage() {
           Manage team members and access
         </p>
       </div>
-      <TeamManager members={members} currentUserId={user.id} />
+      <TeamManager members={members} currentUserId={user.id} availableNumbers={availableNumbers} />
     </div>
   )
 }

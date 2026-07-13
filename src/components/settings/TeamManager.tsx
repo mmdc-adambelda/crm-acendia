@@ -8,6 +8,13 @@ import { USER_ROLES } from '@/types'
 import type { UserRole } from '@/types'
 import { Switch } from '@/components/ui/switch'
 import { Badge } from '@/components/ui/badge'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 
 type TeamMember = {
   id: string
@@ -18,11 +25,13 @@ type TeamMember = {
   phone: string | null
   is_active: boolean
   created_at: string
+  inbound_call_number: string | null
 }
 
 interface TeamManagerProps {
   members: TeamMember[]
   currentUserId: string
+  availableNumbers?: string[]
 }
 
 function getInitials(name: string | null, email: string) {
@@ -32,9 +41,10 @@ function getInitials(name: string | null, email: string) {
   return email[0].toUpperCase()
 }
 
-export function TeamManager({ members, currentUserId }: TeamManagerProps) {
+export function TeamManager({ members, currentUserId, availableNumbers = [] }: TeamManagerProps) {
   const router = useRouter()
   const [togglingId, setTogglingId] = React.useState<string | null>(null)
+  const [assigningId, setAssigningId] = React.useState<string | null>(null)
 
   async function handleToggleActive(member: TeamMember) {
     if (member.id === currentUserId) {
@@ -53,6 +63,23 @@ export function TeamManager({ members, currentUserId }: TeamManagerProps) {
     router.refresh()
   }
 
+  async function handleAssignNumber(member: TeamMember, number: string) {
+    setAssigningId(member.id)
+    const supabase = createClient()
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { error } = await (supabase.from('profiles') as any)
+      .update({ inbound_call_number: number || null })
+      .eq('id', member.id)
+    setAssigningId(null)
+    if (error) { toast.error(error.message); return }
+    toast.success(
+      number
+        ? `Incoming calls to ${number} will now ring ${member.full_name ?? member.email}`
+        : `Removed inbound number from ${member.full_name ?? member.email}`
+    )
+    router.refresh()
+  }
+
   return (
     <div className="space-y-4">
       <div className="rounded-xl border overflow-hidden">
@@ -63,6 +90,7 @@ export function TeamManager({ members, currentUserId }: TeamManagerProps) {
               <th className="px-4 py-2.5 text-left font-medium text-muted-foreground hidden sm:table-cell">Role</th>
               <th className="px-4 py-2.5 text-left font-medium text-muted-foreground hidden md:table-cell">Department</th>
               <th className="px-4 py-2.5 text-left font-medium text-muted-foreground hidden lg:table-cell">Phone</th>
+              <th className="px-4 py-2.5 text-left font-medium text-muted-foreground hidden lg:table-cell">Inbound Number</th>
               <th className="px-4 py-2.5 text-left font-medium text-muted-foreground">Active</th>
             </tr>
           </thead>
@@ -111,6 +139,29 @@ export function TeamManager({ members, currentUserId }: TeamManagerProps) {
                     {member.phone ?? '—'}
                   </td>
 
+                  {/* Inbound call number assignment */}
+                  <td className="px-4 py-3 hidden lg:table-cell">
+                    {availableNumbers.length === 0 ? (
+                      <span className="text-sm text-muted-foreground">—</span>
+                    ) : (
+                      <Select
+                        value={member.inbound_call_number ?? '_none'}
+                        onValueChange={(v) => handleAssignNumber(member, v === '_none' ? '' : v)}
+                        disabled={assigningId === member.id}
+                      >
+                        <SelectTrigger className="h-7 w-[150px] text-xs">
+                          <SelectValue placeholder="Unassigned" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="_none" className="text-xs">Unassigned (ring all)</SelectItem>
+                          {availableNumbers.map(n => (
+                            <SelectItem key={n} value={n} className="text-xs">{n}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    )}
+                  </td>
+
                   {/* Active toggle */}
                   <td className="px-4 py-3">
                     <Switch
@@ -128,6 +179,9 @@ export function TeamManager({ members, currentUserId }: TeamManagerProps) {
       </div>
       <p className="text-xs text-muted-foreground">
         To invite new team members, they need to sign up and be approved. Contact your Supabase administrator.
+      </p>
+      <p className="text-xs text-muted-foreground">
+        Inbound Number: incoming calls to that Twilio number ring only this person. Leave unassigned to ring everyone.
       </p>
     </div>
   )

@@ -90,6 +90,19 @@ export function TwilioDialer({ phoneNumber, leadId, leadName, userId, initialCal
         setStatus('ready')
       })
 
+      // Refresh the token before it expires (1hr TTL) instead of letting
+      // calls fail if this device stays registered for a long session.
+      device.on('tokenWillExpire', async () => {
+        try {
+          const refreshRes = await fetch('/api/twilio/token', { method: 'POST' })
+          if (!refreshRes.ok) return
+          const { token: freshToken } = await refreshRes.json()
+          device.updateToken(freshToken)
+        } catch {
+          // best effort
+        }
+      })
+
       await device.register()
       deviceRef.current = device
       setStatus('ready')

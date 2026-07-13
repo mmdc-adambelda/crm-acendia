@@ -152,6 +152,19 @@ export function DialerPad({ userId, initialCallerIds = [] }: DialerPadProps) {
       })
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       device.on('incoming', (call: any) => { handleIncomingCall(call) })
+      // The Device now stays registered for as long as the CRM tab is open
+      // (needed for inbound calling) — tokens expire after an hour, so
+      // refresh it before that happens instead of letting calls fail.
+      device.on('tokenWillExpire', async () => {
+        try {
+          const refreshRes = await fetch('/api/twilio/token', { method: 'POST' })
+          if (!refreshRes.ok) return
+          const { token: freshToken } = await refreshRes.json()
+          device.updateToken(freshToken)
+        } catch {
+          // best effort — if this fails the device will surface an error on next use
+        }
+      })
       await device.register()
       deviceRef.current = device
       setStatus('ready')

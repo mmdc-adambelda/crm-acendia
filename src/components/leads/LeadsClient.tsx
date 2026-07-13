@@ -348,6 +348,18 @@ export function LeadsClient({
       const device = new Device(token, { logLevel: 'warn' })
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       device.on('error', (err: any) => { toast.error(err?.message ?? 'Dialer error'); setDialerStatus('idle') })
+      // Refresh the token before it expires (1hr TTL) instead of letting
+      // calls fail if this device stays registered for a long session.
+      device.on('tokenWillExpire', async () => {
+        try {
+          const refreshRes = await fetch('/api/twilio/token', { method: 'POST' })
+          if (!refreshRes.ok) return
+          const { token: freshToken } = await refreshRes.json()
+          device.updateToken(freshToken)
+        } catch {
+          // best effort
+        }
+      })
       await device.register()
       deviceRef.current = device
       setDialerStatus('idle')

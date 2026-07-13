@@ -24,6 +24,7 @@ import {
 import { CallFilters } from '@/components/calls/CallFilters'
 import { CallRecordingPlayer } from '@/components/calls/CallRecordingPlayer'
 import { formatDate, getInitials } from '@/lib/utils'
+import { nzDayRangeUtc } from '@/lib/timezone'
 import { CALL_OUTCOMES } from '@/types'
 import type { CallOutcome } from '@/types'
 
@@ -61,7 +62,7 @@ export default async function CallsPage({
   let dateFrom: string | null = null
   const now = new Date()
   if (period === 'today') {
-    dateFrom = new Date(now.getFullYear(), now.getMonth(), now.getDate()).toISOString()
+    dateFrom = nzDayRangeUtc(0).start.toISOString()
   } else if (period === 'week') {
     const d = new Date(now)
     d.setDate(d.getDate() - 7)

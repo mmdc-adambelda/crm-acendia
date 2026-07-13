@@ -1,5 +1,6 @@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Phone } from 'lucide-react'
+import { nzDateKey } from '@/lib/timezone'
 
 type CallLogRow = { call_outcome: string; call_date: string }
 
@@ -20,9 +21,10 @@ function pct(n: number, total: number) {
   return `${((n / total) * 100).toFixed(2)}%`
 }
 
-function shortDate(iso: string) {
-  const d = new Date(iso)
-  return `${d.getMonth() + 1}/${d.getDate()}/${d.getFullYear()}`
+// "7/13/2026" from a "YYYY-MM-DD" key (already an NZ calendar date, no further conversion needed)
+function shortLabel(dateKey: string) {
+  const [y, m, d] = dateKey.split('-')
+  return `${Number(m)}/${Number(d)}/${y}`
 }
 
 export function OutboundCallDashboard({ logs }: OutboundCallDashboardProps) {
@@ -47,20 +49,23 @@ export function OutboundCallDashboard({ logs }: OutboundCallDashboardProps) {
     { outcome: 'Other / Blank', count: Math.max(0, other) },
   ]
 
-  // ── KPI 2: calls per day, last 7 days ────────────────────────────────────
-  const today = new Date()
+  // ── KPI 2: calls per day, last 7 days (NZ calendar days) ────────────────
+  // Anchor on NZ's current calendar date, then step back day-by-day on that
+  // same date (pure calendar arithmetic — no further timezone conversion,
+  // since the anchor is already NZ's correct "today").
+  const nzTodayKey = nzDateKey(new Date())
+  const anchor = new Date(`${nzTodayKey}T00:00:00Z`)
   const days: { label: string; dateKey: string }[] = []
   for (let i = 6; i >= 0; i--) {
-    const d = new Date(today)
-    d.setDate(d.getDate() - i)
-    const dateKey = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
-    days.push({ label: shortDate(d.toISOString()), dateKey })
+    const d = new Date(anchor)
+    d.setUTCDate(d.getUTCDate() - i)
+    const dateKey = d.toISOString().slice(0, 10)
+    days.push({ label: shortLabel(dateKey), dateKey })
   }
 
   const dailyMap = new Map<string, { total: number; booked: number }>()
   for (const log of logs) {
-    const d = new Date(log.call_date)
-    const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+    const key = nzDateKey(log.call_date)
     const existing = dailyMap.get(key) ?? { total: 0, booked: 0 }
     existing.total++
     if (log.call_outcome === 'Booked Meeting') existing.booked++

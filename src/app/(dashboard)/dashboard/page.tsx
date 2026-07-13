@@ -97,6 +97,7 @@ export default async function DashboardPage() {
       sb
         .from('call_logs')
         .select('call_outcome, call_date')
+        .eq('direction', 'outbound')
         .order('call_date', { ascending: false })
         .limit(1000),
     ])

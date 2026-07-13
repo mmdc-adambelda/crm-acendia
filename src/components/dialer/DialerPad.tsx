@@ -4,6 +4,7 @@ import * as React from 'react'
 import {
   Phone,
   PhoneOff,
+  PhoneIncoming,
   Mic,
   MicOff,
   Loader2,
@@ -25,7 +26,7 @@ import {
 import { PostCallLogDialog } from './PostCallLogDialog'
 import { CreateLeadFromCallDialog } from './CreateLeadFromCallDialog'
 
-type CallStatus = 'idle' | 'loading' | 'ready' | 'connecting' | 'in-call' | 'ended'
+type CallStatus = 'idle' | 'loading' | 'ready' | 'connecting' | 'in-call' | 'ended' | 'incoming'
 
 const DIAL_KEYS = [
   [{ d: '1', s: '' }, { d: '2', s: 'ABC' }, { d: '3', s: 'DEF' }],
@@ -63,6 +64,10 @@ export function DialerPad({ userId, initialCallerIds = [] }: DialerPadProps) {
   const [twilioCallSid, setTwilioCallSid] = React.useState<string | null>(null)
   const [savedCallLogId, setSavedCallLogId] = React.useState<string | null>(null)
   const [createLeadOpen, setCreateLeadOpen] = React.useState(false)
+  const [callDirection, setCallDirection] = React.useState<'inbound' | 'outbound'>('outbound')
+  const [incomingLabel, setIncomingLabel] = React.useState('')
+  const [incomingLead, setIncomingLead] = React.useState<LeadResult | null>(null)
+  const [incomingFromNumber, setIncomingFromNumber] = React.useState<string | null>(null)
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const deviceRef = React.useRef<any>(null)
@@ -71,11 +76,15 @@ export function DialerPad({ userId, initialCallerIds = [] }: DialerPadProps) {
   const timerRef = React.useRef<ReturnType<typeof setInterval> | null>(null)
   const searchTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null)
 
+  // Register the Device as soon as the CRM loads (not just before the first
+  // outbound dial) so this browser can actually receive incoming calls.
   React.useEffect(() => {
+    getOrCreateDevice()
     return () => {
       if (timerRef.current) clearInterval(timerRef.current)
       if (deviceRef.current) { try { deviceRef.current.destroy() } catch { /* ignore */ } }
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   // Debounced lead search
@@ -141,6 +150,8 @@ export function DialerPad({ userId, initialCallerIds = [] }: DialerPadProps) {
         toast.error(`Dialer: ${err?.message ?? 'Unknown error'}`)
         setStatus('ready')
       })
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      device.on('incoming', (call: any) => { handleIncomingCall(call) })
       await device.register()
       deviceRef.current = device
       setStatus('ready')
@@ -158,6 +169,7 @@ export function DialerPad({ userId, initialCallerIds = [] }: DialerPadProps) {
     const device = await getOrCreateDevice()
     if (!device) return
 
+    setCallDirection('outbound')
     setStatus('connecting')
     setSeconds(0)
     setIsMuted(false)
@@ -187,6 +199,68 @@ export function DialerPad({ userId, initialCallerIds = [] }: DialerPadProps) {
     }
   }
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  async function handleIncomingCall(call: any) {
+    callRef.current = call
+    setCallDirection('inbound')
+
+    const fromRaw = (call.parameters?.From as string | undefined) ?? ''
+    const digits = fromRaw.replace(/\D/g, '')
+    const last8 = digits.slice(-8)
+
+    let label = fromRaw || 'Unknown number'
+    let matchedLead: LeadResult | null = null
+
+    if (last8.length >= 6) {
+      const supabase = createClient()
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data } = await (supabase.from('leads') as any)
+        .select('id, company_name, contact_person, phone')
+        .ilike('phone', `%${last8}%`)
+        .limit(1)
+      const lead = (data as LeadResult[] | null)?.[0] ?? null
+      if (lead) {
+        matchedLead = lead
+        label = `${lead.company_name} — ${lead.contact_person}`
+      }
+    }
+
+    setIncomingLead(matchedLead)
+    setIncomingLabel(label)
+    setIncomingFromNumber(fromRaw || null)
+    setStatus('incoming')
+    setIsOpen(true)
+
+    // Fires if the caller hangs up before anyone answers, or another
+    // rep's browser accepted the call first.
+    call.on('cancel', () => { cleanup(); setStatus('ready') })
+    call.on('disconnect', () => endCall())
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    call.on('error', (err: any) => {
+      toast.error(err?.message ?? 'Call failed')
+      cleanup()
+      setStatus('ready')
+    })
+  }
+
+  function acceptIncomingCall() {
+    if (!callRef.current) return
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    setTwilioCallSid((callRef.current as any).parameters?.CallSid ?? null)
+    callRef.current.accept()
+    setStatus('in-call')
+    setSeconds(0)
+    setIsMuted(false)
+    timerRef.current = setInterval(() => setSeconds(s => s + 1), 1000)
+  }
+
+  function declineIncomingCall() {
+    if (!callRef.current) return
+    callRef.current.reject()
+    cleanup()
+    setStatus('ready')
+  }
+
   function endCall() {
     cleanup()
     setStatus('ended')
@@ -205,6 +279,7 @@ export function DialerPad({ userId, initialCallerIds = [] }: DialerPadProps) {
     callRef.current = null
     setIsMuted(false)
     setTwilioCallSid(null)
+    setIncomingLabel('')
   }
 
   function toggleMute() {
@@ -218,7 +293,8 @@ export function DialerPad({ userId, initialCallerIds = [] }: DialerPadProps) {
     `${String(Math.floor(s / 60)).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`
 
   const active = status === 'connecting' || status === 'in-call'
-  const canCall = phoneInput.trim().length >= 5 && !active && status !== 'loading'
+  const isIncoming = status === 'incoming'
+  const canCall = phoneInput.trim().length >= 5 && !active && !isIncoming && status !== 'loading'
 
   return (
     <>
@@ -227,10 +303,12 @@ export function DialerPad({ userId, initialCallerIds = [] }: DialerPadProps) {
         <button
           onClick={() => setIsOpen(true)}
           title="Open Dialer"
-          className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 flex h-14 w-14 items-center justify-center rounded-full bg-foreground hover:bg-foreground/80 text-background shadow-xl transition-colors"
+          className={`fixed bottom-6 left-1/2 -translate-x-1/2 z-50 flex h-14 w-14 items-center justify-center rounded-full text-background shadow-xl transition-colors ${
+            isIncoming ? 'bg-green-600 hover:bg-green-500 animate-pulse' : 'bg-foreground hover:bg-foreground/80'
+          }`}
         >
-          <Phone className="h-6 w-6" />
-          {active && (
+          {isIncoming ? <PhoneIncoming className="h-6 w-6" /> : <Phone className="h-6 w-6" />}
+          {(active || isIncoming) && (
             <span className="absolute top-1 right-1 h-3 w-3 rounded-full bg-red-500 animate-pulse border-2 border-background" />
           )}
         </button>
@@ -250,12 +328,46 @@ export function DialerPad({ userId, initialCallerIds = [] }: DialerPadProps) {
               size="icon"
               className="h-7 w-7"
               onClick={() => setIsOpen(false)}
+              disabled={isIncoming}
+              title={isIncoming ? 'Accept or decline the call first' : undefined}
             >
               <X className="h-4 w-4" />
             </Button>
           </div>
 
-          <div className="p-4 space-y-3">
+          {/* Incoming call — accept/decline */}
+          {isIncoming && (
+            <div className="p-5 space-y-4 text-center">
+              <div className="flex flex-col items-center gap-2">
+                <span className="flex h-12 w-12 items-center justify-center rounded-full bg-green-100 dark:bg-green-950/40">
+                  <PhoneIncoming className="h-5 w-5 text-green-600 animate-pulse" />
+                </span>
+                <p className="text-xs text-muted-foreground">Incoming call</p>
+                <p className="text-sm font-semibold break-words">{incomingLabel}</p>
+              </div>
+              <div className="flex items-center justify-center gap-4">
+                <Button
+                  variant="outline"
+                  size="icon"
+                  className="h-12 w-12 rounded-full border-red-300 text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30"
+                  onClick={declineIncomingCall}
+                  title="Decline"
+                >
+                  <PhoneOff className="h-5 w-5" />
+                </Button>
+                <Button
+                  size="icon"
+                  className="h-12 w-12 rounded-full bg-green-600 hover:bg-green-500"
+                  onClick={acceptIncomingCall}
+                  title="Accept"
+                >
+                  <Phone className="h-5 w-5" />
+                </Button>
+              </div>
+            </div>
+          )}
+
+          <div className={`p-4 space-y-3 ${isIncoming ? 'hidden' : ''}`}>
             {/* Lead search — hidden while in call */}
             {!active && (
               <div className="relative">
@@ -420,14 +532,16 @@ export function DialerPad({ userId, initialCallerIds = [] }: DialerPadProps) {
           setPostCallOpen(v)
           if (!v) setStatus('ready')
         }}
-        leadId={selectedLead?.id ?? null}
-        leadName={selectedLead?.company_name ?? null}
+        leadId={(callDirection === 'inbound' ? incomingLead?.id : selectedLead?.id) ?? null}
+        leadName={(callDirection === 'inbound' ? incomingLead?.company_name : selectedLead?.company_name) ?? null}
         userId={userId}
         durationSeconds={seconds}
         twilioCallSid={twilioCallSid}
+        direction={callDirection}
         onSaved={(callLogId) => {
           setSavedCallLogId(callLogId)
-          if (!selectedLead) setCreateLeadOpen(true)
+          const linkedLead = callDirection === 'inbound' ? incomingLead : selectedLead
+          if (!linkedLead) setCreateLeadOpen(true)
         }}
       />
 
@@ -435,7 +549,7 @@ export function DialerPad({ userId, initialCallerIds = [] }: DialerPadProps) {
       <CreateLeadFromCallDialog
         open={createLeadOpen}
         onOpenChange={setCreateLeadOpen}
-        phoneNumber={phoneInput || null}
+        phoneNumber={(callDirection === 'inbound' ? incomingFromNumber : phoneInput) || null}
         callLogId={savedCallLogId}
         userId={userId}
       />

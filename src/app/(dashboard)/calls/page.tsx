@@ -7,6 +7,8 @@ import {
   PhoneOff,
   PhoneCall,
   PhoneMissed,
+  PhoneIncoming,
+  PhoneOutgoing,
   CalendarClock,
   Clock,
 } from 'lucide-react'
@@ -85,6 +87,7 @@ export default async function CallsPage({
       follow_up_date,
       lead_id,
       recording_sid,
+      direction,
       lead:leads(id, company_name, contact_person),
       agent:profiles!call_logs_made_by_fkey(id, full_name)
     `)
@@ -106,6 +109,7 @@ export default async function CallsPage({
     follow_up_date: string | null
     lead_id: string | null
     recording_sid: string | null
+    direction: 'inbound' | 'outbound'
     lead: { id: string; company_name: string; contact_person: string } | null
     agent: { id: string; full_name: string | null } | null
   }
@@ -178,6 +182,7 @@ export default async function CallsPage({
               <Table>
                 <TableHeader>
                   <TableRow className="hover:bg-transparent">
+                    <TableHead className="w-8" />
                     <TableHead>Date &amp; Time</TableHead>
                     <TableHead>Lead</TableHead>
                     <TableHead>Outcome</TableHead>
@@ -193,6 +198,13 @@ export default async function CallsPage({
                     const config = OUTCOME_CONFIG[log.call_outcome] ?? { label: log.call_outcome, color: 'bg-muted text-muted-foreground' }
                     return (
                       <TableRow key={log.id}>
+                        <TableCell>
+                          {log.direction === 'inbound' ? (
+                            <PhoneIncoming className="h-3.5 w-3.5 text-green-600" aria-label="Inbound call" />
+                          ) : (
+                            <PhoneOutgoing className="h-3.5 w-3.5 text-muted-foreground" aria-label="Outbound call" />
+                          )}
+                        </TableCell>
                         <TableCell className="whitespace-nowrap text-sm">
                           {formatDate(log.call_date)}
                           <p className="text-xs text-muted-foreground">

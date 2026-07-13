@@ -55,6 +55,7 @@ interface PostCallLogDialogProps {
   userId: string
   durationSeconds: number
   twilioCallSid?: string | null
+  direction?: 'inbound' | 'outbound'
   onSaved?: (callLogId: string) => void
 }
 
@@ -66,6 +67,7 @@ export function PostCallLogDialog({
   userId,
   durationSeconds,
   twilioCallSid,
+  direction = 'outbound',
   onSaved,
 }: PostCallLogDialogProps) {
   const router = useRouter()
@@ -98,6 +100,7 @@ export function PostCallLogDialog({
       notes: values.notes?.trim() || null,
       follow_up_date: values.follow_up_date || null,
       twilio_call_sid: twilioCallSid ?? null,
+      direction,
     }
     if (values.call_outcome === 'Booked Meeting' && values.appointment_at) {
       payload.appointment_at = new Date(values.appointment_at).toISOString()
@@ -136,7 +139,10 @@ export function PostCallLogDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Log Call{leadName ? ` — ${leadName}` : ''}</DialogTitle>
+          <DialogTitle>
+            {direction === 'inbound' ? 'Log Incoming Call' : 'Log Call'}
+            {leadName ? ` — ${leadName}` : ''}
+          </DialogTitle>
         </DialogHeader>
 
         <Form {...form}>

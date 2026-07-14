@@ -132,13 +132,41 @@ function buildNotes(row: CSVRow): string | null {
   return parts.join('\n\n')
 }
 
-function validateRow(row: CSVRow): string[] {
+function normalizeEmail(email: string): string {
+  return email.trim().toLowerCase()
+}
+
+function normalizePhone(phone: string): string {
+  return phone.replace(/\D/g, '')
+}
+
+interface DuplicateContext {
+  existingEmails: Set<string>
+  existingPhones: Set<string>
+  emailCounts: Map<string, number>
+  phoneCounts: Map<string, number>
+}
+
+function validateRow(row: CSVRow, dupes: DuplicateContext): string[] {
   const errors: string[] = []
   if (!row['Company Name']?.trim()) errors.push('Company Name required')
   if (!row['Contact Person']?.trim()) errors.push('Contact Person required')
   const email = row['Email']?.trim()
-  if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))
+  if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
     errors.push('valid Email required')
+  } else {
+    const normalized = normalizeEmail(email)
+    if (dupes.existingEmails.has(normalized)) errors.push('Email already exists on another lead')
+    else if ((dupes.emailCounts.get(normalized) ?? 0) > 1) errors.push('Duplicate email within this file')
+  }
+  const phone = row['Phone Number']?.trim()
+  if (phone) {
+    const normalized = normalizePhone(phone)
+    if (normalized) {
+      if (dupes.existingPhones.has(normalized)) errors.push('Phone number already exists on another lead')
+      else if ((dupes.phoneCounts.get(normalized) ?? 0) > 1) errors.push('Duplicate phone number within this file')
+    }
+  }
   const scoreRaw = row['Lead Score (/100)']?.trim().replace(/\s*\/\s*100.*/, '').trim()
   if (scoreRaw && (isNaN(Number(scoreRaw)) || Number(scoreRaw) < 0 || Number(scoreRaw) > 100))
     errors.push('Lead Score must be 0–100')
@@ -150,6 +178,7 @@ export function CSVImport({ open, onOpenChange, userId, teamMembers }: CSVImport
   const [rows, setRows] = React.useState<CSVRow[]>([])
   const [errors, setErrors] = React.useState<Map<number, string[]>>(new Map())
   const [isPending, setIsPending] = React.useState(false)
+  const [isChecking, setIsChecking] = React.useState(false)
   const [assignToId, setAssignToId] = React.useState<string>(userId)
   const fileRef = React.useRef<HTMLInputElement>(null)
 
@@ -167,15 +196,47 @@ export function CSVImport({ open, onOpenChange, userId, teamMembers }: CSVImport
     Papa.parse<CSVRow>(file, {
       header: true,
       skipEmptyLines: true,
-      complete: (result) => {
+      complete: async (result) => {
         const parsed = result.data
+        setIsChecking(true)
+
+        const supabase = createClient()
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const { data: existingLeads } = await (supabase.from('leads') as any).select('email, phone')
+        const existingEmails = new Set(
+          ((existingLeads ?? []) as { email: string }[]).map(l => normalizeEmail(l.email))
+        )
+        const existingPhones = new Set(
+          ((existingLeads ?? []) as { phone: string | null }[])
+            .filter(l => l.phone)
+            .map(l => normalizePhone(l.phone as string))
+            .filter(Boolean)
+        )
+
+        const emailCounts = new Map<string, number>()
+        const phoneCounts = new Map<string, number>()
+        for (const row of parsed) {
+          const email = row['Email']?.trim()
+          if (email) {
+            const n = normalizeEmail(email)
+            emailCounts.set(n, (emailCounts.get(n) ?? 0) + 1)
+          }
+          const phone = row['Phone Number']?.trim()
+          if (phone) {
+            const n = normalizePhone(phone)
+            if (n) phoneCounts.set(n, (phoneCounts.get(n) ?? 0) + 1)
+          }
+        }
+
+        const dupes: DuplicateContext = { existingEmails, existingPhones, emailCounts, phoneCounts }
         const errs = new Map<number, string[]>()
         parsed.forEach((row, i) => {
-          const rowErrors = validateRow(row)
+          const rowErrors = validateRow(row, dupes)
           if (rowErrors.length) errs.set(i, rowErrors)
         })
         setRows(parsed)
         setErrors(errs)
+        setIsChecking(false)
       },
     })
   }
@@ -301,8 +362,16 @@ export function CSVImport({ open, onOpenChange, userId, teamMembers }: CSVImport
             </label>
           </div>
 
+          {/* Checking for duplicates */}
+          {isChecking && (
+            <div className="flex items-center gap-2 text-sm text-muted-foreground py-2">
+              <Loader2 className="h-4 w-4 animate-spin" />
+              Checking for duplicate emails and phone numbers…
+            </div>
+          )}
+
           {/* Preview */}
-          {rows.length > 0 && (
+          {!isChecking && rows.length > 0 && (
             <div className="space-y-2">
               <div className="flex items-center gap-2">
                 {hasErrors ? (
@@ -373,7 +442,7 @@ export function CSVImport({ open, onOpenChange, userId, teamMembers }: CSVImport
           </Button>
           <Button
             onClick={handleImport}
-            disabled={!rows.length || hasErrors || isPending}
+            disabled={!rows.length || hasErrors || isPending || isChecking}
           >
             {isPending ? (
               <>

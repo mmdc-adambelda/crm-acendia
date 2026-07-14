@@ -106,6 +106,32 @@ export function LeadForm({
     setIsPending(true)
     const supabase = createClient()
 
+    // Prevent duplicate leads — check email/phone against existing leads
+    // (excluding this lead itself when editing).
+    const normalizedEmail = values.email.trim().toLowerCase()
+    const normalizedPhone = values.phone ? values.phone.replace(/\D/g, '') : ''
+    const orParts = [`email.ilike.${normalizedEmail}`]
+    if (normalizedPhone) orParts.push(`phone.ilike.%${normalizedPhone}%`)
+    let dupQuery = supabase.from('leads').select('id, company_name, email, phone').or(orParts.join(','))
+    if (lead?.id) dupQuery = dupQuery.neq('id', lead.id)
+    const { data: dupMatches } = await dupQuery
+    type DupLead = { id: string; company_name: string; email: string; phone: string | null }
+    const matches = (dupMatches ?? []) as DupLead[]
+    const emailMatch = matches.find(m => m.email.trim().toLowerCase() === normalizedEmail)
+    const phoneMatch = normalizedPhone
+      ? matches.find(m => m.phone && m.phone.replace(/\D/g, '') === normalizedPhone)
+      : undefined
+    if (emailMatch) {
+      toast.error(`A lead with this email already exists: ${emailMatch.company_name}`)
+      setIsPending(false)
+      return
+    }
+    if (phoneMatch) {
+      toast.error(`A lead with this phone number already exists: ${phoneMatch.company_name}`)
+      setIsPending(false)
+      return
+    }
+
     const payload = {
       company_name: values.company_name,
       contact_person: values.contact_person,

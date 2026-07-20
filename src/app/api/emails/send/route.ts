@@ -1,13 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { Resend } from 'resend'
 import { createClient } from '@/lib/supabase/server'
+import { sendGmailEmail } from '@/lib/gmail'
 
 export const runtime = 'nodejs'
 
 export async function POST(req: NextRequest) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return new NextResponse('Unauthorized', { status: 401 })
+  if (!user || !user.email) return new NextResponse('Unauthorized', { status: 401 })
 
   const { leadId, clientId, toEmail, toName, subject, body } =
     await req.json() as {
@@ -20,14 +20,13 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Missing required fields' }, { status: 400 })
   }
 
-  const apiKey = process.env.RESEND_API_KEY
-  const fromEmail = process.env.RESEND_FROM_EMAIL ?? 'onboarding@resend.dev'
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: profile } = await (supabase.from('profiles') as any)
+    .select('full_name')
+    .eq('id', user.id)
+    .single()
+  const senderName = (profile as { full_name: string | null } | null)?.full_name ?? undefined
 
-  if (!apiKey) {
-    return NextResponse.json({ error: 'Email service not configured — add RESEND_API_KEY to env vars' }, { status: 500 })
-  }
-
-  const resend = new Resend(apiKey)
   const htmlBody = `
     <div style="font-family:sans-serif;max-width:600px;margin:0 auto;padding:24px;color:#111">
       <div style="white-space:pre-wrap;line-height:1.6">${body.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\n/g,'<br>')}</div>
@@ -36,16 +35,18 @@ export async function POST(req: NextRequest) {
     </div>
   `
 
-  const { data: sent, error: sendError } = await resend.emails.send({
-    from: fromEmail,
-    to: toEmail,
+  const result = await sendGmailEmail({
+    fromEmail: user.email,
+    fromName: senderName,
+    toEmail,
+    toName,
     subject,
-    html: htmlBody,
     text: body,
+    html: htmlBody,
   })
 
-  if (sendError) {
-    return NextResponse.json({ error: sendError.message }, { status: 500 })
+  if (!result.ok) {
+    return NextResponse.json({ error: result.error }, { status: 500 })
   }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -57,7 +58,7 @@ export async function POST(req: NextRequest) {
     subject,
     body,
     sent_by: user.id,
-    resend_id: sent?.id ?? null,
+    provider_message_id: result.messageId,
     type: 'manual',
   })
 

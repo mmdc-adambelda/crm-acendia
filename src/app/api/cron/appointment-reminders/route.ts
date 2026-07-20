@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
-import { Resend } from 'resend'
+import { sendGmailEmail } from '@/lib/gmail'
 import { sendMoceanSms } from '@/lib/mocean'
 import { nzDayRangeUtc } from '@/lib/timezone'
 
@@ -35,8 +35,7 @@ export async function GET(req: NextRequest) {
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.SUPABASE_SERVICE_ROLE_KEY!
   )
-  const resend = new Resend(process.env.RESEND_API_KEY)
-  const fromEmail = process.env.RESEND_FROM_EMAIL ?? 'onboarding@resend.dev'
+  const reminderSender = process.env.GMAIL_REMINDER_SENDER
 
   const { start, end } = nzDayRangeUtc(1)
 
@@ -64,7 +63,7 @@ export async function GET(req: NextRequest) {
     const greeting = lead.contact_person || lead.company_name
 
     // ── Email reminder ──────────────────────────────────────────────────
-    if (!appt.reminder_sent && lead.email) {
+    if (!appt.reminder_sent && lead.email && reminderSender) {
       const formatted = apptDate.toLocaleString('en-NZ', {
         weekday: 'long',
         year: 'numeric',
@@ -78,9 +77,11 @@ export async function GET(req: NextRequest) {
       const subject  = 'Reminder: Your appointment with Acendia International is tomorrow'
       const textBody = `Hi ${greeting},\n\nThis is a friendly reminder that you have an appointment scheduled with the Acendia International team:\n\n${formatted}\n\nWe look forward to speaking with you. If you need to reschedule, please don't hesitate to reach out.\n\nBest regards,\nThe Acendia International Team`
 
-      const { error } = await resend.emails.send({
-        from: fromEmail,
-        to: lead.email,
+      const result = await sendGmailEmail({
+        fromEmail: reminderSender,
+        fromName: 'Acendia International',
+        toEmail: lead.email,
+        toName: greeting,
         subject,
         text: textBody,
         html: `
@@ -99,7 +100,7 @@ export async function GET(req: NextRequest) {
         `,
       })
 
-      if (!error) {
+      if (result.ok) {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         await (supabase.from('call_logs') as any).update({ reminder_sent: true }).eq('id', appt.id)
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -109,12 +110,13 @@ export async function GET(req: NextRequest) {
           to_name: greeting,
           subject,
           body: textBody,
+          provider_message_id: result.messageId,
           type: 'reminder',
         })
         emailsSent++
         console.log(`[appointment-reminders] emailed ${lead.email} for ${formatted}`)
       } else {
-        console.error(`[appointment-reminders] email failed for lead ${lead.id}:`, error.message)
+        console.error(`[appointment-reminders] email failed for lead ${lead.id}:`, result.error)
       }
     }
 

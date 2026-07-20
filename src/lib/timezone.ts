@@ -53,6 +53,14 @@ export function nzDayRangeUtc(daysFromNow: number, now: Date = new Date()): { st
   return { start: new Date(dayStartWall - offset), end: new Date(dayEndWall - offset) }
 }
 
+// "Wednesday, July 9, 2026" formatted in NZ time.
+export function formatNzLongDate(date: Date | string): string {
+  const d = typeof date === 'string' ? new Date(date) : date
+  return new Intl.DateTimeFormat('en-US', {
+    timeZone: NZ_TIME_ZONE, weekday: 'long', month: 'long', day: 'numeric', year: 'numeric',
+  }).format(d)
+}
+
 // "MMM d, yyyy" formatted in NZ time.
 export function formatNzDate(date: Date | string): string {
   const d = typeof date === 'string' ? new Date(date) : date

@@ -11,7 +11,7 @@ import {
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
 import { formatCurrency } from '@/lib/utils'
-import { nzDayRangeUtc } from '@/lib/timezone'
+import { nzDayRangeUtc, formatNzLongDate } from '@/lib/timezone'
 import { KPICard } from '@/components/dashboard/KPICard'
 import { PipelineChart } from '@/components/dashboard/PipelineChart'
 import { LeadsBySourceChart } from '@/components/dashboard/LeadsBySourceChart'
@@ -35,6 +35,15 @@ const LEAD_STAGES = [
 
 export default async function DashboardPage() {
   const supabase = await createClient()
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const sb = supabase as any
+
+  const { data: { user } } = await supabase.auth.getUser()
+  const { data: profile } = user
+    ? await sb.from('profiles').select('role, full_name').eq('id', user.id).single()
+    : { data: null }
+  const isSalesRep = (profile as { role?: string } | null)?.role === 'sales_rep'
+  const viewerName = (profile as { full_name?: string } | null)?.full_name
 
   // Today's date range, in NZ time
   const { start: startOfDayDate, end: endOfDayDate } = nzDayRangeUtc(0)
@@ -43,6 +52,13 @@ export default async function DashboardPage() {
 
   const sixMonthsAgo = new Date()
   sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6)
+
+  // Sales reps see only their own numbers; everyone else sees company-wide totals
+  function myLeads() {
+    let q = supabase.from('leads').select('*', { count: 'exact', head: true })
+    if (isSalesRep && user) q = q.eq('assigned_to', user.id)
+    return q
+  }
 
   // ── Batch 1: KPI counts (≤10 for TS tuple inference) ───────────────────────
   const [
@@ -54,52 +70,58 @@ export default async function DashboardPage() {
     pipelineValueResult,
     callsTodayResult,
   ] = await Promise.all([
-    supabase.from('leads').select('*', { count: 'exact', head: true }),
-    supabase.from('leads').select('*', { count: 'exact', head: true }).eq('status', 'Qualified'),
-    supabase
-      .from('leads')
-      .select('*', { count: 'exact', head: true })
-      .not('status', 'in', '("Won","Lost")'),
-    supabase.from('leads').select('*', { count: 'exact', head: true }).eq('status', 'Won'),
-    supabase.from('leads').select('*', { count: 'exact', head: true }).eq('status', 'Lost'),
-    supabase.from('leads').select('deal_value').neq('status', 'Lost'),
-    supabase
-      .from('call_logs')
-      .select('*', { count: 'exact', head: true })
-      .gte('call_date', startOfDay)
-      .lt('call_date', endOfDay),
+    myLeads(),
+    myLeads().eq('status', 'Qualified'),
+    myLeads().not('status', 'in', '("Won","Lost")'),
+    myLeads().eq('status', 'Won'),
+    myLeads().eq('status', 'Lost'),
+    (() => {
+      let q = supabase.from('leads').select('deal_value').neq('status', 'Lost')
+      if (isSalesRep && user) q = q.eq('assigned_to', user.id)
+      return q
+    })(),
+    (() => {
+      let q = sb.from('call_logs').select('*', { count: 'exact', head: true })
+        .gte('call_date', startOfDay).lt('call_date', endOfDay)
+      if (isSalesRep && user) q = q.eq('made_by', user.id)
+      return q
+    })(),
   ])
-
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const sb = supabase as any
 
   // ── Batch 2: Chart + table data ─────────────────────────────────────────────
   const [allLeadsResult, closedDealsResult, recentLeadsResult, upcomingTasksResult, callLogsResult] =
     await Promise.all([
-      supabase.from('leads').select('status, source, deal_value'),
-      supabase
-        .from('leads')
-        .select('status, deal_value, updated_at')
-        .in('status', ['Won', 'Lost'])
-        .gte('updated_at', sixMonthsAgo.toISOString()),
-      supabase
-        .from('leads')
-        .select('id, company_name, contact_person, status, source, deal_value, lead_score, created_at')
-        .order('created_at', { ascending: false })
-        .limit(6),
-      supabase
-        .from('tasks')
-        .select('id, title, due_date, priority, status')
-        .in('status', ['Pending', 'In Progress'])
-        .not('due_date', 'is', null)
-        .order('due_date', { ascending: true })
-        .limit(6),
-      sb
-        .from('call_logs')
-        .select('call_outcome, call_date')
-        .eq('direction', 'outbound')
-        .order('call_date', { ascending: false })
-        .limit(1000),
+      (() => {
+        let q = supabase.from('leads').select('status, source, deal_value')
+        if (isSalesRep && user) q = q.eq('assigned_to', user.id)
+        return q
+      })(),
+      (() => {
+        let q = supabase.from('leads').select('status, deal_value, updated_at')
+          .in('status', ['Won', 'Lost']).gte('updated_at', sixMonthsAgo.toISOString())
+        if (isSalesRep && user) q = q.eq('assigned_to', user.id)
+        return q
+      })(),
+      (() => {
+        let q = supabase.from('leads')
+          .select('id, company_name, contact_person, status, source, deal_value, lead_score, created_at')
+          .order('created_at', { ascending: false }).limit(6)
+        if (isSalesRep && user) q = q.eq('assigned_to', user.id)
+        return q
+      })(),
+      (() => {
+        let q = supabase.from('tasks').select('id, title, due_date, priority, status')
+          .in('status', ['Pending', 'In Progress']).not('due_date', 'is', null)
+          .order('due_date', { ascending: true }).limit(6)
+        if (isSalesRep && user) q = q.eq('assigned_to', user.id)
+        return q
+      })(),
+      (() => {
+        let q = sb.from('call_logs').select('call_outcome, call_date')
+          .eq('direction', 'outbound').order('call_date', { ascending: false }).limit(1000)
+        if (isSalesRep && user) q = q.eq('made_by', user.id)
+        return q
+      })(),
     ])
 
   // Explicit casts — Supabase builder types collapse to never for certain filter combos
@@ -178,24 +200,21 @@ export default async function DashboardPage() {
     return { month: label, ...(monthlyMap.get(key) ?? { won: 0, lost: 0, value: 0 }) }
   })
 
-  const today = new Date().toLocaleDateString('en-US', {
-    weekday: 'long',
-    year: 'numeric',
-    month: 'long',
-    day: 'numeric',
-  })
+  const today = formatNzLongDate(new Date())
 
   return (
     <div className="space-y-6">
       {/* Header */}
       <div>
-        <h1 className="text-2xl font-bold">Dashboard</h1>
+        <h1 className="text-2xl font-bold">
+          {isSalesRep ? `${viewerName?.split(' ')[0] ? `${viewerName.split(' ')[0]}'s` : 'My'} Dashboard` : 'Dashboard'}
+        </h1>
         <p className="text-muted-foreground text-sm mt-0.5">{today}</p>
       </div>
 
       {/* KPI Grid */}
       <div className="grid gap-4 grid-cols-2 xl:grid-cols-4">
-        <KPICard title="Total Leads" value={totalLeads} icon={Users} color="blue" />
+        <KPICard title={isSalesRep ? 'My Leads' : 'Total Leads'} value={totalLeads} icon={Users} color="blue" />
         <KPICard title="Qualified Leads" value={qualifiedLeads} icon={Star} color="purple" />
         <KPICard title="Active Deals" value={activeDeals} icon={TrendingUp} color="green" />
         <KPICard title="Closed Won" value={closedWon} icon={Trophy} color="green" />
@@ -218,7 +237,7 @@ export default async function DashboardPage() {
               : 'No closed deals yet'
           }
         />
-        <KPICard title="Calls Today" value={callsToday} icon={Phone} color="orange" />
+        <KPICard title={isSalesRep ? 'My Calls Today' : 'Calls Today'} value={callsToday} icon={Phone} color="orange" />
       </div>
 
       {/* Charts Row */}
@@ -233,7 +252,7 @@ export default async function DashboardPage() {
       <MonthlyDealsChart data={monthlyDealsData} />
 
       {/* Outbound Call Dashboard */}
-      <OutboundCallDashboard logs={callLogs} />
+      <OutboundCallDashboard logs={callLogs} title={isSalesRep ? 'My Outbound Calls' : 'Outbound Call Dashboard'} />
 
       {/* Recent Leads + Upcoming Tasks */}
       <div className="grid gap-4 grid-cols-1 lg:grid-cols-2">

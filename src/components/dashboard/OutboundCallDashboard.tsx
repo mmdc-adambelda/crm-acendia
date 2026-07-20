@@ -6,6 +6,7 @@ type CallLogRow = { call_outcome: string; call_date: string }
 
 interface OutboundCallDashboardProps {
   logs: CallLogRow[]
+  title?: string
 }
 
 const OUTCOME_ORDER = [
@@ -27,7 +28,7 @@ function shortLabel(dateKey: string) {
   return `${Number(m)}/${Number(d)}/${y}`
 }
 
-export function OutboundCallDashboard({ logs }: OutboundCallDashboardProps) {
+export function OutboundCallDashboard({ logs, title = 'Outbound Call Dashboard' }: OutboundCallDashboardProps) {
   const total = logs.length
 
   // ── KPI 1: outcome breakdown ──────────────────────────────────────────────
@@ -85,7 +86,7 @@ export function OutboundCallDashboard({ logs }: OutboundCallDashboardProps) {
       <CardHeader className="pb-4">
         <CardTitle className="flex items-center gap-2 text-base">
           <Phone className="h-4 w-4 text-green-600" />
-          Outbound Call Dashboard
+          {title}
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-6">

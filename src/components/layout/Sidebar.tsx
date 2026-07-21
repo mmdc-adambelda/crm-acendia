@@ -11,6 +11,7 @@ import {
   Phone,
   Building2,
   Settings,
+  Kanban,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { ScrollArea } from '@/components/ui/scroll-area'
@@ -21,6 +22,7 @@ const allNavItems = [
   { label: 'Leads',     href: '/leads',     icon: Users,           roles: null },
   { label: 'Pipeline',  href: '/pipeline',  icon: KanbanSquare,    roles: null },
   { label: 'Tasks',     href: '/tasks',     icon: CheckSquare,     roles: null },
+  { label: 'My Tasks',  href: '/my-tasks',  icon: Kanban,          roles: null },
   { label: 'Calls',     href: '/calls',     icon: Phone,           roles: ['super_admin', 'admin', 'bdm', 'operations_manager', 'client_success_manager'] },
   { label: 'Clients',   href: '/clients',   icon: Building2,       roles: null },
 ]

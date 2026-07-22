@@ -156,6 +156,29 @@ export function TaskBoard({ board, initialLists, initialLabels }: TaskBoardProps
     if (activeCardId === cardId) setActiveCardId(null)
   }
 
+  // Alternative to drag-and-drop — move a card to a different list from
+  // its detail view (e.g. change status without dragging).
+  async function handleMoveCard(cardId: string, fromListId: string, toListId: string) {
+    if (fromListId === toListId) return
+    const snapshot = lists.map(l => ({ ...l, cards: [...l.cards] }))
+    const next = lists.map(l => ({ ...l, cards: [...l.cards] }))
+    const fromList = next.find(l => l.id === fromListId)
+    const toList = next.find(l => l.id === toListId)
+    if (!fromList || !toList) return
+    const cardIndex = fromList.cards.findIndex(c => c.id === cardId)
+    if (cardIndex === -1) return
+    const [moved] = fromList.cards.splice(cardIndex, 1)
+    toList.cards.push(moved)
+    setLists(next)
+
+    const okTo = await persistCardPositions(toListId, toList.cards)
+    const okFrom = await persistCardPositions(fromListId, fromList.cards)
+    if (!okTo || !okFrom) {
+      toast.error('Failed to move card')
+      setLists(snapshot)
+    }
+  }
+
   function handleLabelCreated(label: LabelData) {
     setLabels(prev => [...prev, label])
   }
@@ -249,9 +272,11 @@ export function TaskBoard({ board, initialLists, initialLabels }: TaskBoardProps
           onOpenChange={(v) => { if (!v) setActiveCardId(null) }}
           card={activeCard.card}
           listId={activeCard.listId}
+          lists={lists.map(l => ({ id: l.id, name: l.name }))}
           labels={labels}
           onUpdated={(updated) => handleCardUpdated(activeCard.listId, updated)}
           onDeleted={() => handleCardDeleted(activeCard.listId, activeCard.card.id)}
+          onMoved={(toListId) => handleMoveCard(activeCard.card.id, activeCard.listId, toListId)}
         />
       )}
 

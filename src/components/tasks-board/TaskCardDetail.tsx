@@ -10,6 +10,13 @@ import { Textarea } from '@/components/ui/textarea'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Progress } from '@/components/ui/progress'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 import { ConfirmDialog } from '@/components/shared/ConfirmDialog'
 import { formatNzDateTime } from '@/lib/timezone'
 import { cn } from '@/lib/utils'
@@ -23,9 +30,11 @@ interface TaskCardDetailProps {
   onOpenChange: (v: boolean) => void
   card: CardData
   listId: string
+  lists: { id: string; name: string }[]
   labels: LabelData[]
   onUpdated: (updated: Partial<CardData> & { id: string }) => void
   onDeleted: () => void
+  onMoved: (toListId: string) => void
 }
 
 function toDatetimeLocalValue(iso: string | null): string {
@@ -35,7 +44,7 @@ function toDatetimeLocalValue(iso: string | null): string {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`
 }
 
-export function TaskCardDetail({ open, onOpenChange, card, labels, onUpdated, onDeleted }: TaskCardDetailProps) {
+export function TaskCardDetail({ open, onOpenChange, card, listId, lists, labels, onUpdated, onDeleted, onMoved }: TaskCardDetailProps) {
   const [title, setTitle] = React.useState(card.title)
   const [description, setDescription] = React.useState(card.description ?? '')
   const [dueDateInput, setDueDateInput] = React.useState(toDatetimeLocalValue(card.due_date))
@@ -193,6 +202,21 @@ export function TaskCardDetail({ open, onOpenChange, card, labels, onUpdated, on
         </DialogHeader>
 
         <div className="space-y-5">
+          {/* List — move the card without dragging */}
+          <div className="space-y-1.5">
+            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">List</p>
+            <Select value={listId} onValueChange={onMoved}>
+              <SelectTrigger className="w-56 h-8 text-sm">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {lists.map(l => (
+                  <SelectItem key={l.id} value={l.id}>{l.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
           {/* Labels */}
           {labels.length > 0 && (
             <div className="space-y-1.5">

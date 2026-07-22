@@ -2,7 +2,8 @@
 
 import * as React from 'react'
 import Link from 'next/link'
-import { DragDropContext, Droppable, Draggable, type DropResult } from '@hello-pangea/dnd'
+import { DragDropContext, Draggable, type DropResult } from '@hello-pangea/dnd'
+import { StrictModeDroppable } from './StrictModeDroppable'
 import { ArrowLeft, Plus, Tag } from 'lucide-react'
 import { toast } from 'sonner'
 import { createClient } from '@/lib/supabase/client'
@@ -192,7 +193,7 @@ export function TaskBoard({ board, initialLists, initialLabels }: TaskBoardProps
 
       {/* Board */}
       <DragDropContext onDragEnd={handleDragEnd}>
-        <Droppable droppableId="board" type="LIST" direction="horizontal">
+        <StrictModeDroppable droppableId="board" type="LIST" direction="horizontal">
           {(provided) => (
             <div
               ref={provided.innerRef}
@@ -238,7 +239,7 @@ export function TaskBoard({ board, initialLists, initialLabels }: TaskBoardProps
               </div>
             </div>
           )}
-        </Droppable>
+        </StrictModeDroppable>
       </DragDropContext>
 
       {/* Card detail */}

@@ -1,7 +1,8 @@
 'use client'
 
 import * as React from 'react'
-import { Droppable, Draggable, type DraggableProvidedDragHandleProps } from '@hello-pangea/dnd'
+import { Draggable, type DraggableProvidedDragHandleProps } from '@hello-pangea/dnd'
+import { StrictModeDroppable } from './StrictModeDroppable'
 import { MoreHorizontal, Plus, Trash2, GripVertical } from 'lucide-react'
 import { toast } from 'sonner'
 import { createClient } from '@/lib/supabase/client'
@@ -119,7 +120,7 @@ export function TaskList({ list, labels, dragHandleProps, onOpenCard, onRenamed,
       </div>
 
       {/* Cards */}
-      <Droppable droppableId={list.id} type="CARD">
+      <StrictModeDroppable droppableId={list.id} type="CARD">
         {(provided, snapshot) => (
           <div
             ref={provided.innerRef}
@@ -146,7 +147,7 @@ export function TaskList({ list, labels, dragHandleProps, onOpenCard, onRenamed,
             {provided.placeholder}
           </div>
         )}
-      </Droppable>
+      </StrictModeDroppable>
 
       {/* Add card */}
       <div className="p-2 border-t">
